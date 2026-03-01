@@ -350,13 +350,21 @@
       const cloudPct    = Math.round(clouds[i] ?? 0);
 
       let srTime = '--:--', ssTime = '--:--', goldenSS = '', goldenSR = '';
-      let srScore = score, ssScore = score;
-      if (window.SunCalc) {
+      let ssScore = calcScore(clouds[i]??40, 30, 20, 20, rains[i]??0, 60, 20, 5, 0, 0, 0, wcode);
+      let srScore = ssScore;
+      if (window.SunCalc && loc) {
         const sun = window.SunCalc.calc(loc.lat, loc.lon, d);
         srTime   = fmtTime(sun.sunrise);
         ssTime   = fmtTime(sun.sunset);
         goldenSS = goldenWindow(sun.sunset);
         goldenSR = goldenWindow(sun.sunrise);
+        // ציון נפרד לכל אירוע לפי נתוני השעה המדויקת
+        if (data.hourly?.time) {
+          const ss = scoreForEvent(sun.sunset,  data, aqData, wcode);
+          const sr = scoreForEvent(sun.sunrise, data, aqData, wcode);
+          if (ss !== null) ssScore = ss;
+          if (sr !== null) srScore = sr;
+        }
       }
 
       const ssQ   = qualityInfo(ssScore);
@@ -379,25 +387,7 @@
           </div>
 
           <div class="sun-events">
-            <div class="sun-event">
-              <div class="sun-event-title">🌇 שקיעה</div>
-              <div class="sun-event-time">${ssTime}</div>
-              ${goldenSS ? `<div class="golden-window">⭐ זמן זהוב: ${goldenSS}</div>` : ''}
-              <div class="score-label">
-                <span>צבעוניות</span>
-                <span class="score-value quality-${ssQ.cls}">${ssScore}/10</span>
-              </div>
-              <div class="score-bar-track">
-                <div class="score-bar-fill ${ssQ.barCls}" style="width:${ssScore * 10}%"></div>
-              </div>
-              <div class="score-description quality-${ssQ.cls}">${ssQ.label}</div>
-              <div class="color-palette">${ssPal}</div>
-              <button class="notif-day-btn" id="notif-sunset-${i}"
-                data-type="sunset" data-day="${i}"
-                onclick="window.toggleDayNotif(this)">
-                🔔 התראה לשקיעה
-              </button>
-            </div>
+            <!-- זריחה בימין (RTL — first in DOM) -->
             <div class="sun-event">
               <div class="sun-event-title">🌄 זריחה</div>
               <div class="sun-event-time">${srTime}</div>
@@ -415,6 +405,26 @@
                 data-type="sunrise" data-day="${i}"
                 onclick="window.toggleDayNotif(this)">
                 🔔 התראה לזריחה
+              </button>
+            </div>
+            <!-- שקיעה בשמאל -->
+            <div class="sun-event">
+              <div class="sun-event-title">🌇 שקיעה</div>
+              <div class="sun-event-time">${ssTime}</div>
+              ${goldenSS ? `<div class="golden-window">⭐ זמן זהוב: ${goldenSS}</div>` : ''}
+              <div class="score-label">
+                <span>צבעוניות</span>
+                <span class="score-value quality-${ssQ.cls}">${ssScore}/10</span>
+              </div>
+              <div class="score-bar-track">
+                <div class="score-bar-fill ${ssQ.barCls}" style="width:${ssScore * 10}%"></div>
+              </div>
+              <div class="score-description quality-${ssQ.cls}">${ssQ.label}</div>
+              <div class="color-palette">${ssPal}</div>
+              <button class="notif-day-btn" id="notif-sunset-${i}"
+                data-type="sunset" data-day="${i}"
+                onclick="window.toggleDayNotif(this)">
+                🔔 התראה לשקיעה
               </button>
             </div>
           </div>
