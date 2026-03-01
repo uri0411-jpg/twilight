@@ -17,12 +17,10 @@ const PRECACHE = [
   "./offline.html",
   "./privacy-policy.html"
 ];
-
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
   self.skipWaiting();
 });
-
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -31,13 +29,10 @@ self.addEventListener("activate", (event) => {
   );
   self.clients.claim();
 });
-
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
-
   const url = new URL(req.url);
-
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(req).then((cached) => {
@@ -53,11 +48,8 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
-
-// פתיחת האפליקציה בלחיצה על התראה
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil(
