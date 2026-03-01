@@ -159,7 +159,7 @@
     const url = `https://api.open-meteo.com/v1/forecast`
       + `?latitude=${lat}&longitude=${lon}`
       + `&daily=weathercode,cloud_cover_mean,precipitation_probability_max,temperature_2m_max,temperature_2m_min`
-      + `&hourly=cloud_cover,cloud_cover_high,cloud_cover_mid,cloud_cover_low,precipitation_probability,relative_humidity_2m,visibility,wind_speed_10m`
+      + `&hourly=cloud_cover,cloud_cover_high,cloud_cover_mid,cloud_cover_low,precipitation_probability,relative_humidity_2m,visibility,wind_speed_10m,precipitation`
       + `&timezone=auto&forecast_days=7`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Forecast fetch failed');
@@ -269,16 +269,16 @@
       const wcode = wcodes[i] ?? 0;
 
       let ssScore = null, srScore = null;
-      if (window.SunCalc && loc && hourlyTimes) {
+      if (window.SunCalc && loc && data.hourly?.time) {
         const sun = window.SunCalc.calc(loc.lat, loc.lon, d);
         ssScore = scoreForEvent(sun.sunset,  data, aqData, wcode);
         srScore = scoreForEvent(sun.sunrise, data, aqData, wcode);
       }
 
-      // ממוצע שקיעה+זריחה, fallback לציון כללי
+      // ממוצע שקיעה+זריחה, fallback לציון כללי (signature חדש)
       const score = (ssScore !== null && srScore !== null)
         ? Math.round((ssScore + srScore) / 2)
-        : calcScore(clouds[i] ?? 40, rains[i] ?? 0, wcode);
+        : calcScore(clouds[i] ?? 40, 30, 20, 20, rains[i] ?? 0, 60, 20, 5, 0, 0, 0, wcode);
 
       scores7.push(score);
       labels7.push(i === 0 ? 'היום' : i === 1 ? 'מחר' : DAYS_HE[d.getDay()]);
@@ -491,7 +491,8 @@
       ]);
       render(data, aqData, loc);
     } catch (e) {
-      if (container) container.innerHTML = `<div class="loading-state"><span>⚠️</span><p>שגיאה בטעינת תחזית</p></div>`;
+      console.error('Forecast load error:', e);
+      if (container) container.innerHTML = `<div class="loading-state"><span>⚠️</span><p>שגיאה בטעינת תחזית<br><small style="font-size:10px;opacity:0.6">${e.message}</small></p></div>`;
     }
   }
 
