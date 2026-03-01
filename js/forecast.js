@@ -136,11 +136,15 @@
       const score   = calcScore(clouds[i] ?? 40, rains[i] ?? 0, wcodes[i] ?? 0);
       const q       = qualityInfo(score);
       const label   = i === 0 ? 'היום' : i === 1 ? 'מחר' : DAYS_HE[d.getDay()];
+      
+      // תיקון חישוב גובה דינמי: מינימום 15% כדי שלא יהיה שטוח מדי
+      const barHeight = Math.max(15, score * 10);
+
       chartBars += `
         <div class="chart-bar-wrap">
           <div class="chart-bar-score quality-${q.cls}">${score}</div>
           <div class="chart-bar-outer">
-            <div class="chart-bar-inner" data-height="${score*10}" style="height:0%;background:${barColor(score)}"></div>
+            <div class="chart-bar-inner" data-height="${barHeight}" style="height:0%; background:${barColor(score)}"></div>
           </div>
           <div class="chart-bar-label">${label}</div>
         </div>`;
@@ -282,10 +286,10 @@
 
     container.innerHTML = html;
 
-    // אנימציית ברים
+    // אנימציית ברים - הזרקה משופרת
     setTimeout(() => {
       document.querySelectorAll('.chart-bar-inner').forEach(el => {
-        el.style.height = el.dataset.height + '%';
+        el.style.height = (el.dataset.height || '0') + '%';
       });
     }, 150);
 
@@ -437,6 +441,6 @@
     }
   }
 
-    window.addEventListener('twilight:loc', (e) => loadForecast(e.detail));
+  window.addEventListener('twilight:loc', (e) => loadForecast(e.detail));
   window.Forecast = { load: loadForecast };
 })();
