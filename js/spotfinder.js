@@ -1,11 +1,46 @@
-// spotfinder.js v3 — מפה קבועה + רשימה גוללת + markers עם ציון
+// spotfinder.js v4 — כל השיפורים
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // ─── Leaflet instance ─────────────────────────────────────────────
   let map = null;
   let centerMarker = null;
   let spotMarkers  = [];
+  let savedSpots   = JSON.parse(localStorage.getItem('spotFavorites') || '[]');
+
+  // ─── Determine next event ─────────────────────────────────────────
+  function getNextEvent(lat, lon) {
+    if (!window.SunCalc) return { type: 'sunset', label: 'שקיעה', dir: 'west' };
+    const now = new Date();
+    const sun = window.SunCalc.calc(lat, lon, now);
+    const nowMs = now.getTime();
+    // אם הזריחה עוד לפנינו היום → זריחה. אחרת → שקיעה
+    if (sun.sunrise && sun.sunrise.getTime() > nowMs) {
+      return { type: 'sunrise', label: 'זריחה', dir: 'east',  icon: '🌄' };
+    }
+    if (sun.sunset && sun.sunset.getTime() > nowMs) {
+      return { type: 'sunset',  label: 'שקיעה', dir: 'west',  icon: '🌇' };
+    }
+    // שני האירועים עברו — הזריחה של מחר
+    return { type: 'sunrise', label: 'זריחה (מחר)', dir: 'east', icon: '🌄' };
+  }
+
+  // ─── Cardinal direction of a point from center ────────────────────
+  function bearingDeg(lat1, lon1, lat2, lon2) {
+    const r = d => d * Math.PI / 180;
+    const dLon = r(lon2 - lon1);
+    const y = Math.sin(dLon) * Math.cos(r(lat2));
+    const x = Math.cos(r(lat1)) * Math.sin(r(lat2)) - Math.sin(r(lat1)) * Math.cos(r(lat2)) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  // האם הנקודה פתוחה לכיוון הנדרש (מזרח/מערב)?
+  function horizonScore(bearing, requiredDir) {
+    // מערב = 270°, מזרח = 90°
+    const target = requiredDir === 'west' ? 270 : 90;
+    const diff = Math.abs(((bearing - target) + 180) % 360 - 180);
+    // diff=0 → 1.0, diff=90 → 0.0
+    return Math.max(0, 1 - diff / 90);
+  }
 
   // ─── Geo helpers ──────────────────────────────────────────────────
   function haversineKm(lat1, lon1, lat2, lon2) {
@@ -15,233 +50,265 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
+  // זמן נסיעה בדקות (הערכה לפי 50 קמ"ש)
+  function driveMinutes(km) {
+    const min = Math.round((km / 50) * 60);
+    return min < 60 ? `${min} דק'` : `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')} שע'`;
+  }
+
   const mapsUrl = (lat, lon) => `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
   const wazeUrl = (lat, lon) => `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`;
 
   // ─── Init Leaflet map ─────────────────────────────────────────────
   function initMap(lat, lon) {
-    const mapEl = $("spotMap");
+    const mapEl = $('spotMap');
     if (!mapEl || !window.L) return;
+    if (map) { map.setView([lat, lon], 13); return; }
 
-    if (map) {
-      map.setView([lat, lon], 13);
-      return;
-    }
+    map = L.map('spotMap', { center:[lat,lon], zoom:13, zoomControl:true, attributionControl:false });
 
-    map = L.map("spotMap", {
-      center: [lat, lon],
-      zoom: 13,
-      zoomControl: true,
-      attributionControl: false,
-    });
+    const ph = document.getElementById('mapPlaceholder');
+    if (ph) ph.style.display = 'none';
 
-    // הסתר placeholder
-    const ph = document.getElementById("mapPlaceholder");
-    if (ph) ph.style.display = "none";
-
-    // Voyager tile layer — בהיר יותר, מתאים לשימוש יומי
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19,
-    }).addTo(map);
-
-    L.control.attribution({ prefix: false })
-      .addAttribution('© <a href="https://openstreetmap.org">OSM</a>')
-      .addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+    L.control.attribution({ prefix:false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(map);
   }
 
-  // ─── Custom marker icons ──────────────────────────────────────────
-  function makeScoreIcon(score10, typeIcon, isTop) {
-    const scoreNum = score10.toFixed(0);
+  // ─── Icons ────────────────────────────────────────────────────────
+  function makeScoreIcon(score10, typeIcon, isTop, horizDir) {
     const bg = score10 >= 8
-      ? "linear-gradient(135deg,#ff7a5c,#f4b14b)"
+      ? 'linear-gradient(135deg,#ff7a5c,#f4b14b)'
       : score10 >= 6
-      ? "linear-gradient(135deg,#f4b14b,#f4c97a)"
-      : "linear-gradient(135deg,#555,#777)";
-    const size  = isTop ? 52 : 44;
-    const html  = `
-      <div style="
-        width:${size}px; height:${size}px;
-        background:${bg};
-        border-radius:50% 50% 50% 4px;
-        transform: rotate(-45deg);
-        box-shadow: 0 4px 14px rgba(0,0,0,.55);
-        border: 2px solid rgba(255,255,255,.35);
-        display:flex; align-items:center; justify-content:center;
-      ">
-        <div style="transform:rotate(45deg); text-align:center; line-height:1.1">
-          <div style="font-size:${isTop ? 15 : 13}px; font-weight:900; color:#fff">${scoreNum}</div>
-          <div style="font-size:${isTop ? 11 : 9}px">${typeIcon}</div>
+      ? 'linear-gradient(135deg,#f4b14b,#f4c97a)'
+      : 'linear-gradient(135deg,#555,#777)';
+    const size = isTop ? 52 : 44;
+    const dirArrow = horizDir === 'west' ? '◀' : '▶';
+    const html = `
+      <div style="width:${size}px;height:${size}px;background:${bg};border-radius:50% 50% 50% 4px;
+        transform:rotate(-45deg);box-shadow:0 4px 14px rgba(0,0,0,.55);
+        border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;">
+        <div style="transform:rotate(45deg);text-align:center;line-height:1.1">
+          <div style="font-size:${isTop?15:13}px;font-weight:900;color:#fff">${score10}</div>
+          <div style="font-size:${isTop?11:9}px">${typeIcon}</div>
         </div>
       </div>`;
-    return L.divIcon({
-      html,
-      className: "",
-      iconSize:   [size, size],
-      iconAnchor: [size/2, size],
-      popupAnchor:[0, -size],
-    });
+    return L.divIcon({ html, className:'', iconSize:[size,size], iconAnchor:[size/2,size], popupAnchor:[0,-size] });
   }
 
   function makeCenterIcon() {
-    const html = `
-      <div style="
-        width:36px; height:36px;
-        background:radial-gradient(circle,rgba(90,174,212,.9),rgba(90,174,212,.4));
-        border-radius:50%;
-        border:3px solid rgba(90,174,212,.9);
-        box-shadow:0 0 0 6px rgba(90,174,212,.2), 0 4px 14px rgba(0,0,0,.5);
-        display:flex; align-items:center; justify-content:center;
-        font-size:16px;
-      ">📍</div>`;
-    return L.divIcon({ html, className:"", iconSize:[36,36], iconAnchor:[18,18] });
+    const html = `<div style="width:36px;height:36px;background:radial-gradient(circle,rgba(90,174,212,.9),rgba(90,174,212,.4));
+      border-radius:50%;border:3px solid rgba(90,174,212,.9);box-shadow:0 0 0 6px rgba(90,174,212,.2),0 4px 14px rgba(0,0,0,.5);
+      display:flex;align-items:center;justify-content:center;font-size:16px;">📍</div>`;
+    return L.divIcon({ html, className:'', iconSize:[36,36], iconAnchor:[18,18] });
   }
 
-  // ─── Clear map markers ────────────────────────────────────────────
   function clearMarkers() {
     spotMarkers.forEach(m => m.remove());
     spotMarkers = [];
     if (centerMarker) { centerMarker.remove(); centerMarker = null; }
   }
 
-  // ─── Add markers to map ───────────────────────────────────────────
-  function addMarkersToMap(center, scored) {
-    if (!map) return;
-    clearMarkers();
-
-    // Center
-    centerMarker = L.marker([center.lat, center.lon], { icon: makeCenterIcon(), zIndexOffset: 1000 })
-      .addTo(map)
-      .bindTooltip("המיקום שלך", { direction: "top", className: "spot-tooltip" });
-
-    // Fit bounds
-    const bounds = [[center.lat, center.lon]];
-
-    scored.forEach((spot, i) => {
-      const score10 = +(spot.score * 10).toFixed(1);
-      const isTop   = i === 0;
-      const icon    = makeScoreIcon(score10, spot.typeInfo?.icon || "📍", isTop);
-
-      const popupHtml = buildPopupHtml(spot, i, score10);
-      const m = L.marker([spot.lat, spot.lon], { icon, zIndexOffset: isTop ? 500 : 100 - i })
-        .addTo(map)
-        .bindPopup(popupHtml, {
-          maxWidth: 260,
-          className: "spot-popup",
-        });
-
-      // לחיצה על פריט ברשימה → פתח popup על המפה
-      m._spotIdx = i;
-      spotMarkers.push(m);
-      bounds.push([spot.lat, spot.lon]);
-
-      // לחיצה על popup → scroll לפריט ברשימה
-      m.on("popupopen", () => {
-        const listItem = document.getElementById("list-item-" + i);
-        if (listItem) listItem.scrollIntoView({ behavior: "smooth", block: "center" });
-        highlightListItem(i);
-      });
-    });
-
-    map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 });
-  }
-
-  // ─── Popup HTML ───────────────────────────────────────────────────
+  // ─── Popup ────────────────────────────────────────────────────────
   function buildPopupHtml(spot, idx, score10) {
-    const typeInfo  = spot.typeInfo || { label: "נקודה", icon: "📍" };
-    const scoreColor = score10 >= 8 ? "#ff7a5c" : score10 >= 6 ? "#f4b14b" : "#aaa";
+    const ti = spot.typeInfo || { label:'נקודה', icon:'📍' };
+    const scoreColor = score10 >= 8 ? '#ff7a5c' : score10 >= 6 ? '#f4b14b' : '#aaa';
+    const horizPct = Math.round((spot.horizScore || 0) * 100);
+    const isSaved = savedSpots.some(s => s.lat === spot.lat && s.lon === spot.lon);
     return `
-      <div style="direction:rtl;font-family:'Heebo',sans-serif;min-width:200px">
+      <div style="direction:rtl;font-family:'Heebo',sans-serif;min-width:210px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-          <span style="font-size:20px">${typeInfo.icon}</span>
-          <div>
+          <span style="font-size:20px">${ti.icon}</span>
+          <div style="flex:1">
             <div style="font-weight:700;font-size:14px;color:#f4e8d4">#${idx+1} ${spot.name}</div>
-            <div style="font-size:11px;color:rgba(244,232,212,.5)">${typeInfo.label}</div>
+            <div style="font-size:11px;color:rgba(244,232,212,.5)">${ti.label}</div>
           </div>
-          <div style="margin-right:auto;font-size:22px;font-weight:900;color:${scoreColor}">${score10}</div>
+          <div style="font-size:22px;font-weight:900;color:${scoreColor}">${score10}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:11px;color:rgba(244,232,212,.6)">⬆ ${Math.round(spot.elev)}m</span>
-          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:11px;color:rgba(244,232,212,.6)">↔ ${spot.d.toFixed(1)} ק"מ</span>
-          ${!spot.fromGrid ? '<span style="background:rgba(100,220,100,.12);border-radius:6px;padding:2px 8px;font-size:11px;color:rgba(100,220,100,.8)">OSM ✓</span>' : ''}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">⬆ ${Math.round(spot.elev)}m</span>
+          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">↔ ${spot.d.toFixed(1)} ק"מ</span>
+          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">🚗 ${driveMinutes(spot.d)}</span>
+          <span style="background:rgba(240,165,50,.12);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(240,180,60,.9)">
+            ${spot.nextEvent?.icon || '🌇'} אופק ${horizPct}%
+          </span>
+          ${!spot.fromGrid ? '<span style="background:rgba(100,220,100,.12);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(100,220,100,.8)">OSM ✓</span>' : ''}
         </div>
-        <div style="display:flex;gap:6px">
-          <a href="${mapsUrl(spot.lat, spot.lon)}" target="_blank"
-             style="flex:1;text-align:center;padding:7px;background:rgba(240,180,60,.2);border:1px solid rgba(240,180,60,.3);border-radius:8px;color:#ffd46a;font-size:12px;font-weight:600;text-decoration:none">
-            🗺 מפות
-          </a>
-          <a href="${wazeUrl(spot.lat, spot.lon)}" target="_blank"
-             style="flex:1;text-align:center;padding:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#f4e8d4;font-size:12px;font-weight:600;text-decoration:none">
-            🚗 Waze
-          </a>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <a href="${mapsUrl(spot.lat,spot.lon)}" target="_blank"
+             style="flex:1;text-align:center;padding:7px;background:rgba(240,180,60,.2);border:1px solid rgba(240,180,60,.3);
+             border-radius:8px;color:#ffd46a;font-size:12px;font-weight:600;text-decoration:none">🗺 מפות</a>
+          <a href="${wazeUrl(spot.lat,spot.lon)}" target="_blank"
+             style="flex:1;text-align:center;padding:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+             border-radius:8px;color:#f4e8d4;font-size:12px;font-weight:600;text-decoration:none">🚗 Waze</a>
+          <button onclick="window.toggleSpotFav(${idx})" id="fav-popup-${idx}"
+             style="padding:7px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+             border-radius:8px;color:${isSaved?'#ffd46a':'rgba(244,232,212,.5)'};font-size:14px;cursor:pointer">
+             ${isSaved?'★':'☆'}
+          </button>
         </div>
       </div>`;
   }
 
-  // ─── Highlight list item ──────────────────────────────────────────
+  // ─── Map markers ──────────────────────────────────────────────────
+  function addMarkersToMap(center, scored) {
+    if (!map) return;
+    clearMarkers();
+    centerMarker = L.marker([center.lat,center.lon], { icon:makeCenterIcon(), zIndexOffset:1000 })
+      .addTo(map).bindTooltip('המיקום שלך', { direction:'top', className:'spot-tooltip' });
+
+    const bounds = [[center.lat, center.lon]];
+    scored.forEach((spot, i) => {
+      const score10 = +(spot.score * 10).toFixed(1);
+      const isTop = i === 0;
+      const icon = makeScoreIcon(score10, spot.typeInfo?.icon || '📍', isTop, spot.nextEvent?.dir);
+      const m = L.marker([spot.lat,spot.lon], { icon, zIndexOffset: isTop?500:100-i })
+        .addTo(map)
+        .bindPopup(buildPopupHtml(spot, i, score10), { maxWidth:270, className:'spot-popup' });
+      m._spotIdx = i;
+      spotMarkers.push(m);
+      bounds.push([spot.lat, spot.lon]);
+      m.on('popupopen', () => {
+        highlightListItem(i);
+        document.getElementById('list-item-'+i)?.scrollIntoView({ behavior:'smooth', block:'center' });
+      });
+    });
+    map.fitBounds(bounds, { padding:[32,32], maxZoom:14 });
+  }
+
   function highlightListItem(idx) {
-    document.querySelectorAll(".spot-list-item").forEach((el, i) => {
-      el.style.borderColor = i === idx
-        ? "rgba(240,180,60,.5)"
-        : "rgba(255,185,80,.12)";
+    document.querySelectorAll('.spot-list-item').forEach((el, i) => {
+      el.style.borderColor = i === idx ? 'rgba(240,180,60,.55)' : 'rgba(255,185,80,.12)';
     });
   }
 
+  // ─── Favorites ────────────────────────────────────────────────────
+  window.toggleSpotFav = function(idx) {
+    const spot = window.__lastScored?.[idx];
+    if (!spot) return;
+    const key = `${spot.lat},${spot.lon}`;
+    const existing = savedSpots.findIndex(s => `${s.lat},${s.lon}` === key);
+    if (existing >= 0) {
+      savedSpots.splice(existing, 1);
+    } else {
+      savedSpots.push({ lat:spot.lat, lon:spot.lon, name:spot.name, elev:spot.elev, type:spot.typeInfo?.label });
+    }
+    localStorage.setItem('spotFavorites', JSON.stringify(savedSpots));
+    renderSavedSpots();
+    // update popup button
+    const btn = document.getElementById('fav-popup-'+idx);
+    if (btn) {
+      const isSaved = existing < 0;
+      btn.textContent = isSaved ? '★' : '☆';
+      btn.style.color = isSaved ? '#ffd46a' : 'rgba(244,232,212,.5)';
+    }
+  };
+
+  function renderSavedSpots() {
+    const el = $('savedSpots');
+    if (!el) return;
+    if (!savedSpots.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="controls-title" style="margin-bottom:8px">⭐ ספוטים שמורים</div>
+      ${savedSpots.map((s,i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,.03);
+          border:1px solid rgba(255,185,80,.1);border-radius:12px;margin-bottom:6px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${s.name}</div>
+            <div style="font-size:11px;color:var(--muted)">${s.type || ''} · ⬆ ${Math.round(s.elev||0)}m</div>
+          </div>
+          <a href="${wazeUrl(s.lat,s.lon)}" target="_blank"
+             style="font-size:11px;padding:5px 8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+             border-radius:8px;color:var(--text);text-decoration:none">🚗</a>
+          <button onclick="window.removeSavedSpot(${i})"
+             style="background:none;border:none;color:rgba(244,232,212,.3);font-size:16px;cursor:pointer">✕</button>
+        </div>`).join('')}`;
+  }
+
+  window.removeSavedSpot = function(i) {
+    savedSpots.splice(i, 1);
+    localStorage.setItem('spotFavorites', JSON.stringify(savedSpots));
+    renderSavedSpots();
+  };
+
+  // ─── Share spot ───────────────────────────────────────────────────
+  window.shareSpot = function(idx) {
+    const spot = window.__lastScored?.[idx];
+    if (!spot) return;
+    const url = mapsUrl(spot.lat, spot.lon);
+    const text = `${spot.name} — ספוט תצפית מומלץ לשקיעה/זריחה\n${url}`;
+    if (navigator.share) {
+      navigator.share({ title: spot.name, text, url });
+    } else {
+      navigator.clipboard.writeText(text).then(() => alert('הקישור הועתק!'));
+    }
+  };
+
   // ─── Overpass ─────────────────────────────────────────────────────
-  async function fetchOverpassSpots(lat, lon, radiusM) {
-    const query = `
-      [out:json][timeout:25];
-      (
-        node["tourism"="viewpoint"](around:${radiusM},${lat},${lon});
-        node["natural"="peak"](around:${radiusM},${lat},${lon});
-        node["natural"="hill"](around:${radiusM},${lat},${lon});
-        node["man_made"="observation_tower"](around:${radiusM},${lat},${lon});
-        node["amenity"="observation_platform"](around:${radiusM},${lat},${lon});
-      );
-      out body;
-    `.trim();
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  async function fetchOverpassSpots(lat, lon, radiusM, types) {
+    const typeFilters = {
+      viewpoint:   `node["tourism"="viewpoint"]`,
+      peak:        `node["natural"="peak"]`,
+      hill:        `node["natural"="hill"]`,
+      tower:       `node["man_made"="observation_tower"]`,
+      platform:    `node["amenity"="observation_platform"]`,
+      beach:       `node["natural"="beach"]`,
+      park:        `node["leisure"="park"]`,
+    };
+    const selected = types.length ? types : Object.keys(typeFilters);
+    const lines = selected.map(t => typeFilters[t] ? `${typeFilters[t]}(around:${radiusM},${lat},${lon});` : '').join('\n');
+    const query = `[out:json][timeout:25];\n(\n${lines}\n);\nout body;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method:'POST', body:'data='+encodeURIComponent(query),
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
     });
-    if (!res.ok) throw new Error("Overpass נכשל (" + res.status + ")");
-    const data = await res.json();
-    return data.elements || [];
+    if (!res.ok) throw new Error('Overpass נכשל ('+res.status+')');
+    return (await res.json()).elements || [];
   }
 
   // ─── Elevation ────────────────────────────────────────────────────
   async function getElevationsBatch(points) {
     if (!points.length) return [];
-    const lats = points.map(p => p.lat).join(",");
-    const lons = points.map(p => p.lon).join(",");
-    const res  = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
-    if (!res.ok) throw new Error("Elevation failed");
+    const lats = points.map(p => p.lat).join(',');
+    const lons = points.map(p => p.lon).join(',');
+    const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`);
+    if (!res.ok) throw new Error('Elevation failed');
     const data = await res.json();
     return Array.isArray(data.elevation) ? data.elevation : [data.elevation];
   }
 
   // ─── Type helpers ─────────────────────────────────────────────────
   function spotTypeLabel(tags) {
-    if (tags?.tourism === "viewpoint")            return { label:"נקודת תצפית", icon:"🔭", priority:10 };
-    if (tags?.man_made === "observation_tower")   return { label:"מגדל תצפית",  icon:"🗼", priority:9  };
-    if (tags?.amenity === "observation_platform") return { label:"פלטפורמת תצפית",icon:"🏗",priority:9 };
-    if (tags?.natural === "peak")                 return { label:"פסגה",        icon:"⛰️", priority:8  };
-    if (tags?.natural === "hill")                 return { label:"גבעה",        icon:"🏔️", priority:7  };
-    return                                               { label:"נקודה",       icon:"📍", priority:5  };
+    if (tags?.tourism === 'viewpoint')            return { label:'נקודת תצפית',    icon:'🔭', priority:10 };
+    if (tags?.man_made === 'observation_tower')   return { label:'מגדל תצפית',     icon:'🗼', priority:9  };
+    if (tags?.amenity === 'observation_platform') return { label:'פלטפורמת תצפית', icon:'🏗', priority:9  };
+    if (tags?.natural === 'peak')                 return { label:'פסגה',           icon:'⛰️', priority:8  };
+    if (tags?.natural === 'hill')                 return { label:'גבעה',           icon:'🏔️', priority:7  };
+    if (tags?.natural === 'beach')                return { label:'חוף ים',         icon:'🏖️', priority:6  };
+    if (tags?.leisure === 'park')                 return { label:'פארק',           icon:'🌳', priority:5  };
+    return                                               { label:'נקודה',          icon:'📍', priority:4  };
   }
 
   function spotName(tags) {
-    return tags?.["name:he"] || tags?.name || tags?.["name:en"] || "נקודה ללא שם";
+    return tags?.['name:he'] || tags?.name || tags?.['name:en'] || 'נקודה ללא שם';
   }
 
   // ─── Score ────────────────────────────────────────────────────────
-  function scoreSpot(center, spot, elevRange) {
+  function scoreSpot(center, spot, elevRange, nextEvent) {
     const d = haversineKm(center.lat, center.lon, spot.lat, spot.lon);
     const x = d / Math.max(0.001, center.radiusKm);
-    const distScore  = x < 0.1 ? 0.4 : x < 0.3 ? 0.7 : x < 0.8 ? 1.0 : Math.max(0, 1-(x-0.8)*2);
-    const elevNorm   = elevRange.max > elevRange.min ? (spot.elev - elevRange.min) / (elevRange.max - elevRange.min) : 0.5;
+    const distScore = x < 0.1 ? 0.4 : x < 0.3 ? 0.7 : x < 0.8 ? 1.0 : Math.max(0, 1-(x-0.8)*2);
+    const elevNorm  = elevRange.max > elevRange.min
+      ? (spot.elev - elevRange.min) / (elevRange.max - elevRange.min) : 0.5;
     const typePriority = (spot.typeInfo?.priority || 5) / 10;
-    return { d, score: Math.min(1, 0.40*elevNorm + 0.35*distScore + 0.25*typePriority) };
+
+    // כיוון האופק לאירוע הבא
+    const bearing = bearingDeg(center.lat, center.lon, spot.lat, spot.lon);
+    const hScore  = horizonScore(bearing, nextEvent.dir);
+
+    // משקלות: גובה 30%, כיוון אופק 30%, מרחק 25%, סוג 15%
+    const score = Math.min(1, 0.30*elevNorm + 0.30*hScore + 0.25*distScore + 0.15*typePriority);
+    return { d, score, horizScore: hScore, bearing };
   }
 
   // ─── Fallback grid ────────────────────────────────────────────────
@@ -252,8 +319,8 @@
     const dLon = center.radiusKm / (111.320 * Math.cos(center.lat * Math.PI / 180));
     rings.forEach((r, ri) => {
       for (let i = 0; i < perRing[ri]; i++) {
-        const a = (2 * Math.PI * i) / perRing[ri];
-        points.push({ lat: center.lat + r*dLat*Math.sin(a), lon: center.lon + r*dLon*Math.cos(a), tags:{}, fromGrid:true });
+        const a = (2*Math.PI*i) / perRing[ri];
+        points.push({ lat:center.lat+r*dLat*Math.sin(a), lon:center.lon+r*dLon*Math.cos(a), tags:{}, fromGrid:true });
       }
     });
     return points;
@@ -261,52 +328,70 @@
 
   // ─── Render list ──────────────────────────────────────────────────
   function renderList(scored) {
-    const container = $("results");
+    const container = $('results');
     if (!container) return;
-    container.innerHTML = "";
+    container.innerHTML = '';
+    window.__lastScored = scored;
 
     scored.forEach((spot, i) => {
-      const score10    = +(spot.score * 10).toFixed(1);
-      const typeInfo   = spot.typeInfo || { label:"נקודה", icon:"📍" };
+      const score10 = +(spot.score * 10).toFixed(1);
+      const ti = spot.typeInfo || { label:'נקודה', icon:'📍' };
+      const isSaved = savedSpots.some(s => s.lat === spot.lat && s.lon === spot.lon);
+      const horizPct = Math.round((spot.horizScore||0)*100);
       const scoreColor = score10 >= 8
-        ? "linear-gradient(135deg,rgba(255,122,92,.25),rgba(244,177,75,.15))"
+        ? 'linear-gradient(135deg,rgba(255,122,92,.25),rgba(244,177,75,.15))'
         : score10 >= 6
-        ? "linear-gradient(135deg,rgba(244,177,75,.18),rgba(244,201,122,.1))"
-        : "rgba(255,255,255,.04)";
+        ? 'linear-gradient(135deg,rgba(244,177,75,.18),rgba(244,201,122,.1))'
+        : 'rgba(255,255,255,.04)';
 
-      const el = document.createElement("div");
-      el.className  = "item spot-list-item";
-      el.id         = "list-item-" + i;
-      el.style.cursor = "pointer";
-
+      const el = document.createElement('div');
+      el.className = 'item spot-list-item';
+      el.id = 'list-item-'+i;
+      el.style.cursor = 'pointer';
       el.innerHTML = `
-        <div class="item__left">
-          <div class="item__title">
-            <span style="font-size:18px">${typeInfo.icon}</span>
-            #${i+1} • ${spot.name}
+        <div class="item__left" style="flex:1;min-width:0">
+          <div class="item__title" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:18px">${ti.icon}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${i+1} ${spot.name}</span>
           </div>
-          <div class="item__meta">
-            <span class="badge">${typeInfo.label}</span>
+          <div class="item__meta" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+            <span class="badge">${ti.label}</span>
             <span class="badge">⬆ ${Math.round(spot.elev)}m</span>
             <span class="badge">↔ ${spot.d.toFixed(1)} ק"מ</span>
-            ${!spot.fromGrid ? '<span class="badge" style="color:rgba(100,220,100,.8)">OSM ✓</span>' : '<span class="badge" style="opacity:.5">גריד</span>'}
+            <span class="badge">🚗 ${driveMinutes(spot.d)}</span>
+            <span class="badge" style="color:rgba(240,180,60,.9)">${spot.nextEvent?.icon||'🌇'} אופק ${horizPct}%</span>
+            ${!spot.fromGrid?'<span class="badge" style="color:rgba(100,220,100,.8)">OSM ✓</span>':''}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <a href="${mapsUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()"
+               style="font-size:11px;padding:5px 10px;background:rgba(240,180,60,.15);border:1px solid rgba(240,180,60,.25);
+               border-radius:8px;color:#ffd46a;text-decoration:none;font-weight:600">🗺 מפות</a>
+            <a href="${wazeUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()"
+               style="font-size:11px;padding:5px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+               border-radius:8px;color:var(--text);text-decoration:none;font-weight:600">🚗 Waze</a>
+            <button onclick="event.stopPropagation();window.toggleSpotFav(${i})" id="fav-btn-${i}"
+               style="font-size:14px;padding:5px 8px;background:none;border:1px solid rgba(255,255,255,.1);
+               border-radius:8px;cursor:pointer;color:${isSaved?'#ffd46a':'rgba(244,232,212,.4)'}">
+               ${isSaved?'★':'☆'}
+            </button>
+            <button onclick="event.stopPropagation();window.shareSpot(${i})"
+               style="font-size:14px;padding:5px 8px;background:none;border:1px solid rgba(255,255,255,.1);
+               border-radius:8px;cursor:pointer;color:rgba(244,232,212,.4)">📤</button>
           </div>
         </div>
         <div class="item__actions">
-          <div class="item__score" style="background:${scoreColor};font-family:\'Cormorant Garamond\',serif;font-size:22px">${score10}</div>
+          <div class="item__score" style="background:${scoreColor};font-family:'Cormorant Garamond',serif;font-size:22px">${score10}</div>
         </div>`;
 
-      // לחיצה על פריט ברשימה → פתח popup על המפה + scroll למעלה
-      el.addEventListener("click", () => {
+      el.addEventListener('click', () => {
         const m = spotMarkers[i];
         if (m && map) {
-          map.setView(m.getLatLng(), 15, { animate: true });
+          map.setView(m.getLatLng(), 15, { animate:true });
           m.openPopup();
           highlightListItem(i);
-          $("spotMap")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          $('spotMap')?.scrollIntoView({ behavior:'smooth', block:'start' });
         }
       });
-
       container.appendChild(el);
     });
   }
@@ -314,102 +399,100 @@
   // ─── Main ─────────────────────────────────────────────────────────
   async function findSpots() {
     const loc = window.__twilightLoc;
-    if (!loc) { alert("בחר מיקום (GPS או חיפוש) ואז נסה שוב."); return; }
+    if (!loc) { alert('בחר מיקום (GPS או חיפוש) ואז נסה שוב.'); return; }
 
-    const radiusKm = Number($("radiusKm")?.value || 12);
-    const topN     = Number($("topN")?.value     || 5);
-    const center   = { lat: loc.lat, lon: loc.lon, radiusKm };
+    const radiusKm = Number($('radiusKm')?.value || 12);
+    const topN     = Number($('topN')?.value || 8);
+    const center   = { lat:loc.lat, lon:loc.lon, radiusKm };
 
-    // הצג מפה וכרטיס תוצאות
-    const mapSection = $("mapSection");
-    const resultsCard = $("resultsCard");
-    if (mapSection) mapSection.style.display = "block";
-    if (resultsCard) resultsCard.style.display = "block";
+    // זיהוי האירוע הבא
+    const nextEvent = getNextEvent(loc.lat, loc.lon);
 
-    // אתחל מפה
+    // עדכון כותרת
+    const subEl = document.querySelector('.spot-brand__sub');
+    if (subEl) subEl.textContent = `נקודות תצפית ל${nextEvent.label} ${nextEvent.icon}`;
+
+    $('resultsCard').style.display = 'block';
     initMap(loc.lat, loc.lon);
     clearMarkers();
 
-    const summary = $("resultSummary");
-    if (summary) summary.textContent = "מחפש נקודות תצפית ב-OpenStreetMap…";
-    const container = $("results");
-    if (container) container.innerHTML = "";
+    const summary = $('resultSummary');
+    if (summary) summary.textContent = 'מחפש נקודות תצפית…';
+    $('results').innerHTML = '';
+
+    // סינון סוגים
+    const typeChecks = [...document.querySelectorAll('.type-filter:checked')].map(el => el.value);
 
     let spots = [], usedOverpass = false;
-
-    // 1. Overpass
     try {
-      const elements = await fetchOverpassSpots(loc.lat, loc.lon, radiusKm * 1000);
+      const elements = await fetchOverpassSpots(loc.lat, loc.lon, radiusKm * 1000, typeChecks);
       spots = elements.map(el => ({
-        lat: el.lat, lon: el.lon, tags: el.tags || {},
-        name: spotName(el.tags), typeInfo: spotTypeLabel(el.tags), fromGrid: false,
+        lat:el.lat, lon:el.lon, tags:el.tags||{},
+        name:spotName(el.tags), typeInfo:spotTypeLabel(el.tags), fromGrid:false,
       }));
       usedOverpass = true;
       if (summary) summary.textContent = `נמצאו ${spots.length} נקודות. מחשב גבהים…`;
-    } catch (e) {
-      console.warn("Overpass failed:", e);
-      if (summary) summary.textContent = "Overpass לא זמין — עובר לגריד…";
+    } catch(e) {
+      console.warn('Overpass failed:', e);
+      if (summary) summary.textContent = 'Overpass לא זמין — עובר לגריד…';
     }
 
-    // 2. Fallback
     if (!spots.length) {
-      spots = buildPolarGrid(center).map(p => ({ ...p, name:"נקודה", typeInfo: spotTypeLabel({}) }));
-      if (summary) summary.textContent = `גריד פולארי — ${spots.length} נקודות…`;
+      spots = buildPolarGrid(center).map(p => ({ ...p, name:'נקודה', typeInfo:spotTypeLabel({}) }));
     }
 
-    // 3. Elevation
     try {
       const batch = spots.slice(0, 100);
       const elevs = await getElevationsBatch(batch);
-      spots = batch.map((s, i) => ({ ...s, elev: elevs[i] ?? 0 }));
+      spots = batch.map((s,i) => ({ ...s, elev:elevs[i]??0 }));
     } catch {
-      spots = spots.map(s => ({ ...s, elev: 0 }));
+      spots = spots.map(s => ({ ...s, elev:0 }));
     }
 
-    // 4. Score + sort
     const elevRange = {
-      min: Math.min(...spots.map(s => s.elev)),
-      max: Math.max(...spots.map(s => s.elev)),
+      min: Math.min(...spots.map(s=>s.elev)),
+      max: Math.max(...spots.map(s=>s.elev)),
     };
+
     const scored = spots
-      .map(s => { const {d, score} = scoreSpot(center, s, elevRange); return {...s, d, score}; })
+      .map(s => {
+        const { d, score, horizScore, bearing } = scoreSpot(center, s, elevRange, nextEvent);
+        return { ...s, d, score, horizScore, bearing, nextEvent };
+      })
       .sort((a,b) => b.score - a.score)
       .slice(0, topN);
 
     if (!scored.length) {
-      if (summary) summary.textContent = "לא נמצאו תוצאות. נסה רדיוס גדול יותר.";
+      if (summary) summary.textContent = 'לא נמצאו תוצאות. נסה רדיוס גדול יותר.';
       return;
     }
 
-    // 5. Render
     const src = usedOverpass && !scored[0]?.fromGrid ? `${scored.length} נקודות OSM` : `${scored.length} נקודות גריד`;
-    if (summary) summary.textContent = `${src} — לחץ על marker או פריט ברשימה לפרטים`;
+    if (summary) summary.textContent = `${nextEvent.icon} ${src} ל${nextEvent.label} — לחץ על marker לפרטים`;
 
     addMarkersToMap(center, scored);
     renderList(scored);
+    renderSavedSpots();
   }
 
   // ─── Wire UI ──────────────────────────────────────────────────────
   function wireUI() {
-    const radiusKm  = $("radiusKm");
-    const radiusVal = $("radiusVal");
+    const radiusKm = $('radiusKm'), radiusVal = $('radiusVal');
     if (radiusKm && radiusVal) {
-      const sync = () => (radiusVal.textContent = radiusKm.value);
-      radiusKm.addEventListener("input", sync);
-      sync();
+      const sync = () => radiusVal.textContent = radiusKm.value;
+      radiusKm.addEventListener('input', sync); sync();
     }
-
-    const btnFind = $("btnFind");
+    const btnFind = $('btnFind');
     if (btnFind) {
-      btnFind.addEventListener("click", async () => {
-        btnFind.disabled    = true;
-        btnFind.textContent = "מחפש...";
+      btnFind.addEventListener('click', async () => {
+        btnFind.disabled = true; btnFind.textContent = 'מחפש…';
         try { await findSpots(); }
-        catch (e) { console.error(e); alert("Spot Finder נכשל: " + (e.message || e)); }
-        finally { btnFind.disabled = false; btnFind.textContent = "מצא נקודות"; }
+        catch(e) { console.error(e); alert('שגיאה: '+(e.message||e)); }
+        finally { btnFind.disabled=false; btnFind.textContent='🔭 מצא נקודות'; }
       });
     }
+    renderSavedSpots();
   }
 
-  document.addEventListener("DOMContentLoaded", wireUI);
+  document.addEventListener('DOMContentLoaded', wireUI);
 })();
