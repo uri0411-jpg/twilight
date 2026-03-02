@@ -246,24 +246,50 @@
 
   // ─── Overpass ─────────────────────────────────────────────────────
   async function fetchOverpassSpots(lat, lon, radiusM, types) {
+    // רק סוגים שמשמעותם תצפית — ללא beach/park שנותנים רעש
     const typeFilters = {
-      viewpoint:   `node["tourism"="viewpoint"]`,
-      peak:        `node["natural"="peak"]`,
-      hill:        `node["natural"="hill"]`,
-      tower:       `node["man_made"="observation_tower"]`,
-      platform:    `node["amenity"="observation_platform"]`,
-      beach:       `node["natural"="beach"]`,
-      park:        `node["leisure"="park"]`,
+      viewpoint: `node["tourism"="viewpoint"]`,
+      peak:      `node["natural"="peak"]["name"]`,
+      hill:      `node["natural"="hill"]["name"]`,
+      tower:     `node["man_made"="observation_tower"]`,
+      platform:  `node["amenity"="observation_platform"]`,
+      beach:     `node["natural"="beach"]["name"]`,
+      park:      `node["leisure"="park"]["name"]`,
     };
-    const selected = types.length ? types : Object.keys(typeFilters);
-    const lines = selected.map(t => typeFilters[t] ? `${typeFilters[t]}(around:${radiusM},${lat},${lon});` : '').join('\n');
-    const query = `[out:json][timeout:25];\n(\n${lines}\n);\nout body;`;
+    const selected = types.length ? types : ['viewpoint','peak','hill','tower','platform'];
+    const lines = selected
+      .filter(t => typeFilters[t])
+      .map(t => `  ${typeFilters[t]}(around:${radiusM},${lat},${lon});`)
+      .join('\n');
+
+    // out tags — מחזיר גם tags כדי לסנן לפי גישה ושם
+    const query = `[out:json][timeout:30];
+(
+${lines}
+);
+out tags center;`;
+
     const res = await fetch('https://overpass-api.de/api/interpreter', {
       method:'POST', body:'data='+encodeURIComponent(query),
       headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
     });
     if (!res.ok) throw new Error('Overpass נכשל ('+res.status+')');
-    return (await res.json()).elements || [];
+    const data = await res.json();
+
+    return (data.elements || []).filter(el => {
+      const tags = el.tags || {};
+      // פסול: גישה אסורה
+      if (tags.access === 'private' || tags.access === 'no') return false;
+      // פסול: חייב שיהיה lat/lon
+      if (!el.lat || !el.lon) return false;
+      // תצפית/מגדל — תמיד תקף גם ללא שם
+      if (tags.tourism === 'viewpoint') return true;
+      if (tags.man_made === 'observation_tower') return true;
+      if (tags.amenity === 'observation_platform') return true;
+      // פסגה/גבעה/חוף/פארק — חייב שם
+      const name = tags['name:he'] || tags.name || tags['name:en'] || '';
+      return name.length > 1;
+    });
   }
 
   // ─── Elevation ────────────────────────────────────────────────────
@@ -309,21 +335,6 @@
     // משקלות: גובה 30%, כיוון אופק 30%, מרחק 25%, סוג 15%
     const score = Math.min(1, 0.30*elevNorm + 0.30*hScore + 0.25*distScore + 0.15*typePriority);
     return { d, score, horizScore: hScore, bearing };
-  }
-
-  // ─── Fallback grid ────────────────────────────────────────────────
-  function buildPolarGrid(center) {
-    const points = [];
-    const rings = [0.2,0.4,0.6,0.8,1.0], perRing = [4,6,8,10,12];
-    const dLat = center.radiusKm / 110.574;
-    const dLon = center.radiusKm / (111.320 * Math.cos(center.lat * Math.PI / 180));
-    rings.forEach((r, ri) => {
-      for (let i = 0; i < perRing[ri]; i++) {
-        const a = (2*Math.PI*i) / perRing[ri];
-        points.push({ lat:center.lat+r*dLat*Math.sin(a), lon:center.lon+r*dLon*Math.cos(a), tags:{}, fromGrid:true });
-      }
-    });
-    return points;
   }
 
   // ─── Render list ──────────────────────────────────────────────────
@@ -438,7 +449,9 @@
     }
 
     if (!spots.length) {
-      spots = buildPolarGrid(center).map(p => ({ ...p, name:'נקודה', typeInfo:spotTypeLabel({}) }));
+      if (summary) summary.textContent = `לא נמצאו נקודות תצפית מאומתות ברדיוס ${radiusKm} ק"מ. נסה להגדיל את הרדיוס.`;
+      $('resultsCard').style.display = 'none';
+      return;
     }
 
     try {
@@ -447,6 +460,14 @@
       spots = batch.map((s,i) => ({ ...s, elev:elevs[i]??0 }));
     } catch {
       spots = spots.map(s => ({ ...s, elev:0 }));
+    }
+
+    // סינון מחמיר: רק נקודות שבאמת בתוך הרדיוס (haversine מדויק)
+    spots = spots.filter(s => haversineKm(center.lat, center.lon, s.lat, s.lon) <= radiusKm);
+
+    if (!spots.length) {
+      if (summary) summary.textContent = `לא נמצאו נקודות ברדיוס ${radiusKm} ק"מ לאחר סינון. נסה להגדיל.`;
+      return;
     }
 
     const elevRange = {
@@ -467,8 +488,7 @@
       return;
     }
 
-    const src = usedOverpass && !scored[0]?.fromGrid ? `${scored.length} נקודות OSM` : `${scored.length} נקודות גריד`;
-    if (summary) summary.textContent = `${nextEvent.icon} ${src} ל${nextEvent.label} — לחץ על marker לפרטים`;
+    if (summary) summary.textContent = `${nextEvent.icon} ${scored.length} נקודות מאומתות ל${nextEvent.label} — לחץ על marker לפרטים`;
 
     addMarkersToMap(center, scored);
     renderList(scored);
