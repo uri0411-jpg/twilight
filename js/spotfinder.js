@@ -50,10 +50,47 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
-  // זמן נסיעה בדקות (הערכה לפי 50 קמ"ש)
-  function driveMinutes(km) {
-    const min = Math.round((km / 50) * 60);
+  // פורמט זמן נסיעה
+  function fmtDrive(seconds) {
+    if (!seconds) return null;
+    const min = Math.round(seconds / 60);
     return min < 60 ? `${min} דק'` : `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')} שע'`;
+  }
+
+  // פורמט מרחק כביש
+  function fmtRoadKm(meters) {
+    if (!meters) return null;
+    return meters >= 1000 ? `${(meters/1000).toFixed(1)} ק"מ` : `${Math.round(meters)} מ'`;
+  }
+
+  // OSRM Table API — מרחק + זמן כביש לכל הנקודות בבת אחת
+  async function fetchRoadDistances(center, spots) {
+    // coords: מרכז ראשון, אחריו כל הנקודות
+    const coords = [
+      `${center.lon},${center.lat}`,
+      ...spots.map(s => `${s.lon},${s.lat}`)
+    ].join(';');
+
+    const url = `https://router.project-osrm.org/table/v1/driving/${coords}`
+      + `?sources=0&annotations=distance,duration`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.code !== 'Ok') return null;
+      // distances[0] = מרכז→כל הנקודות (מטרים)
+      // durations[0] = מרכז→כל הנקודות (שניות)
+      // index 0 = מרכז עצמו → מדלגים, index 1..n = הנקודות
+      const distances = data.distances?.[0]?.slice(1) || [];
+      const durations = data.durations?.[0]?.slice(1) || [];
+      return spots.map((_, i) => ({
+        roadMeters:  distances[i] ?? null,
+        roadSeconds: durations[i] ?? null,
+      }));
+    } catch {
+      return null;
+    }
   }
 
   const mapsUrl = (lat, lon) => `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
@@ -126,8 +163,12 @@
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
           <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">⬆ ${Math.round(spot.elev)}m</span>
-          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">↔ ${spot.d.toFixed(1)} ק"מ</span>
-          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">🚗 ${driveMinutes(spot.d)}</span>
+          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">
+            🚗 ${spot.roadMeters ? fmtRoadKm(spot.roadMeters) : spot.d.toFixed(1)+' ק"מ (קו אוויר)'}
+          </span>
+          <span style="background:rgba(255,255,255,.08);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(244,232,212,.7)">
+            ⏱ ${spot.roadSeconds ? fmtDrive(spot.roadSeconds) : '~'+Math.round(spot.d/50*60)+String.fromCharCode(39)+'דק'}
+          </span>
           <span style="background:rgba(240,165,50,.12);border-radius:6px;padding:2px 7px;font-size:11px;color:rgba(240,180,60,.9)">
             ${spot.nextEvent?.icon || '🌇'} אופק ${horizPct}%
           </span>
@@ -322,7 +363,9 @@ out tags center;`;
   // ─── Score ────────────────────────────────────────────────────────
   function scoreSpot(center, spot, elevRange, nextEvent) {
     const d = haversineKm(center.lat, center.lon, spot.lat, spot.lon);
-    const x = d / Math.max(0.001, center.radiusKm);
+    // אם יש מרחק כביש — השתמש בו לציון (מעניש נקודות עם עקיפות ארוכות)
+    const effectiveKm = spot.roadMeters ? spot.roadMeters / 1000 : d;
+    const x = effectiveKm / Math.max(0.001, center.radiusKm);
     const distScore = x < 0.1 ? 0.4 : x < 0.3 ? 0.7 : x < 0.8 ? 1.0 : Math.max(0, 1-(x-0.8)*2);
     const elevNorm  = elevRange.max > elevRange.min
       ? (spot.elev - elevRange.min) / (elevRange.max - elevRange.min) : 0.5;
@@ -368,8 +411,8 @@ out tags center;`;
           <div class="item__meta" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
             <span class="badge">${ti.label}</span>
             <span class="badge">⬆ ${Math.round(spot.elev)}m</span>
-            <span class="badge">↔ ${spot.d.toFixed(1)} ק"מ</span>
-            <span class="badge">🚗 ${driveMinutes(spot.d)}</span>
+            <span class="badge">🚗 ${spot.roadMeters ? fmtRoadKm(spot.roadMeters) : spot.d.toFixed(1)+' ק"מ'}</span>
+            <span class="badge">⏱ ${spot.roadSeconds ? fmtDrive(spot.roadSeconds) : '~'+Math.round(spot.d/50*60)+' דק\''}</span>
             <span class="badge" style="color:rgba(240,180,60,.9)">${spot.nextEvent?.icon||'🌇'} אופק ${horizPct}%</span>
             ${!spot.fromGrid?'<span class="badge" style="color:rgba(100,220,100,.8)">OSM ✓</span>':''}
           </div>
@@ -468,6 +511,24 @@ out tags center;`;
     if (!spots.length) {
       if (summary) summary.textContent = `לא נמצאו נקודות ברדיוס ${radiusKm} ק"מ לאחר סינון. נסה להגדיל.`;
       return;
+    }
+
+    // מרחק וזמן כביש — OSRM Table API (קריאה אחת לכל הנקודות)
+    if (summary) summary.textContent = 'מחשב מרחקי כביש…';
+    const roadData = await fetchRoadDistances(center, spots);
+    if (roadData) {
+      spots = spots
+        .map((s, i) => ({
+          ...s,
+          roadMeters:  roadData[i]?.roadMeters  ?? null,
+          roadSeconds: roadData[i]?.roadSeconds ?? null,
+        }))
+        .filter(s => s.roadMeters !== null && s.roadSeconds !== null);
+
+      if (!spots.length) {
+        if (summary) summary.textContent = 'לא נמצאו נקודות עם גישה בכביש. נסה רדיוס אחר.';
+        return;
+      }
     }
 
     const elevRange = {
