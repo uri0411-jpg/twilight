@@ -83,12 +83,11 @@
     if (cosH >  1) return null;   // השמש לא עולה
     if (cosH < -1) return null;   // השמש לא שוקעת
 
-    const H = rise
-      ? 360 - deg(Math.acos(cosH))
-      : deg(Math.acos(cosH));
-
-    const noon   = 720 - 4 * lon - equationOfTime(t);   // UTC minutes
-    return noon + (rise ? -1 : 1) * H * 4;              // UTC minutes
+    // H = זווית שעה בעלות/שקיעה
+    // זריחה: noon - H*4, שקיעה: noon + H*4
+    const H    = deg(Math.acos(cosH));  // תמיד חיובי (0-180°)
+    const noon = 720 - 4 * lon - equationOfTime(t);   // UTC minutes
+    return rise ? noon - H * 4 : noon + H * 4;        // UTC minutes
   }
 
   function utcMinToDate(date, utcMin) {

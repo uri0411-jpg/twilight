@@ -277,7 +277,7 @@
     const scores7 = [];
     const labels7 = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(today); d.setDate(today.getDate() + i);
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
       const wcode = wcodes[i] ?? 0;
 
       let ssScore = null, srScore = null;
@@ -338,8 +338,8 @@
 
     // ── 3 day cards ──
     for (let i = 0; i < 3; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
+      // תאריך נקי (חצות שעון מקומי) כדי ש-SunCalc יחשב נכון
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
       const dayName     = i === 0 ? 'היום' : i === 1 ? 'מחר' : DAYS_HE[d.getDay()];
       const dateDisplay = `${d.getDate()} ב${MONTHS_HE[d.getMonth()]}`;
       const wcode       = wcodes[i] ?? 0;
