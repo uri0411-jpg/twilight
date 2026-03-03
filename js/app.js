@@ -201,7 +201,7 @@
 
   // ── שיתוף האפליקציה ──────────────────────────────────────────────
   window.shareApp = async function() {
-    const url = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
+    const url = 'https://github.com/uri0411-jpg/twilight/releases/download/v1.0/default.apk';
     if (navigator.share) {
       try {
         await navigator.share({
