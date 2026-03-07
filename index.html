@@ -28,7 +28,7 @@
       <div class="hero__overlay"></div>
       <div class="hero__top">
         <img class="app-badge" src="./icons/icon-192.png" alt="דמדומים" />
-        <button class="ghost-btn" id="btnShareApp" type="button">שתף</button>
+        <button class="ghost-btn" id="btnShareApp" type="button" onclick="shareApp()">שתף</button>
       </div>
       <div class="hero__content">
         <div class="eyebrow">TWILIGHT • SUNSET FORECAST</div>
@@ -60,6 +60,79 @@
       </section>
       <footer class="footer-note">נתונים: Open‑Meteo • חישובי שמש: SunCalc</footer>
     </div>
+
+  <!-- ─── התראות ─── -->
+  <section id="notifSection" class="page page--forecast" style="display:none">
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="font:700 22px 'Cormorant Garamond',serif;margin:0 0 10px">התראות</h3>
+      <div id="notifStatus" class="notif-status"></div>
+      <button id="btnRequestNotif" id="notifPermBtn" class="pill-btn pill-btn--primary" style="width:100%;margin-top:10px;display:none">הפעל התראות</button>
+
+      <div style="margin-top:18px;display:grid;gap:14px">
+        <!-- שקיעה -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notifSunsetOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
+          <span>התראה לפני שקיעה</span>
+        </label>
+        <div id="sunsetTimingRow" style="display:none;padding-right:28px">
+          <label class="field-row">
+            <span class="field-row__label">דקות לפני</span>
+            <input id="sunsetMin" class="range-input" type="range" min="5" max="120" step="5" value="30">
+            <span class="field-row__value"><span id="sunsetMinVal">30</span> דק'</span>
+          </label>
+        </div>
+
+        <!-- זריחה -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notifSunriseOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
+          <span>התראה לפני זריחה</span>
+        </label>
+        <div id="sunriseTimingRow" style="display:none;padding-right:28px">
+          <label class="field-row">
+            <span class="field-row__label">דקות לפני</span>
+            <input id="sunriseMin" class="range-input" type="range" min="5" max="120" step="5" value="30">
+            <span class="field-row__value"><span id="sunriseMinVal">30</span> דק'</span>
+          </label>
+        </div>
+
+        <!-- שקיעה לפי ציון -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notifSunsetScoreOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
+          <span>התראה לשקיעה מיוחדת (לפי ציון)</span>
+        </label>
+        <div id="sunsetScoreRow" style="display:none;padding-right:28px;display:grid;gap:8px">
+          <label class="field-row">
+            <span class="field-row__label">ציון מינימלי</span>
+            <input id="sunsetScore" class="range-input" type="range" min="5" max="10" step="0.5" value="7">
+            <span class="field-row__value"><span id="sunsetScoreVal">7</span></span>
+          </label>
+          <label class="field-row">
+            <span class="field-row__label">דקות לפני</span>
+            <input id="sunsetScoreMin" class="range-input" type="range" min="15" max="120" step="5" value="60">
+            <span class="field-row__value"><span id="sunsetScoreTimeVal">60</span> דק'</span>
+          </label>
+        </div>
+
+        <!-- זריחה לפי ציון -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notifSunriseScoreOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
+          <span>התראה לזריחה מיוחדת (לפי ציון)</span>
+        </label>
+        <div id="sunriseScoreRow" style="display:none;padding-right:28px;display:grid;gap:8px">
+          <label class="field-row">
+            <span class="field-row__label">ציון מינימלי</span>
+            <input id="sunriseScore" class="range-input" type="range" min="5" max="10" step="0.5" value="7">
+            <span class="field-row__value"><span id="sunriseScoreVal">7</span></span>
+          </label>
+          <label class="field-row">
+            <span class="field-row__label">דקות לפני</span>
+            <input id="sunriseScoreMin" class="range-input" type="range" min="15" max="120" step="5" value="60">
+            <span class="field-row__value"><span id="sunriseScoreTimeVal">60</span> דק'</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
   </main>
 
   <nav class="bottom-nav">
