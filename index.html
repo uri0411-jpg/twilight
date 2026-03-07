@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ddb37a" />
+  <meta name="theme-color" content="#1a0c04" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="דמדומים — תחזית צבעוניות שקיעות וזריחות" />
   <link rel="manifest" href="./manifest.json" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-512.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/app.css" />
   <title>דמדומים</title>
 </head>
-<body class="theme-aurora theme-home">
+<body class="theme-home">
+  <!-- Splash -->
   <div id="splash" class="splash-v2">
     <img class="splash-logo" src="./icons/icon-512.png" alt="דמדומים" />
     <div class="splash-title">דמדומים</div>
@@ -24,6 +25,7 @@
   </div>
 
   <div class="mobile-shell">
+    <!-- Hero -->
     <header class="hero hero--home">
       <div class="hero__media"><img src="./icons/icon-512.png" alt="שקיעה" /></div>
       <div class="hero__overlay"></div>
@@ -32,18 +34,19 @@
         <button class="hero-chip" id="installBtn" hidden>📲 התקן</button>
       </div>
       <div class="hero__content">
-        <span class="eyebrow">Sunset & sunrise forecast</span>
+        <span class="eyebrow">Sunset &amp; Sunrise Forecast</span>
         <h1>דמדומים</h1>
         <p>תחזית צבעוניות שקיעות וזריחות עם חיפוש נקודות תצפית קרובות.</p>
         <div class="hero__actions">
           <a class="cta cta--primary" href="#mainContent">לצפייה בתחזית</a>
-          <a class="cta cta--glass" href="./spot.html">Spot Finder 🔭</a>
+          <a class="cta cta--glass" href="./spot.html">🔭 Spot Finder</a>
         </div>
       </div>
     </header>
 
     <main class="app-main">
-      <section class="floating-search card card--soft card--search">
+      <!-- Search card -->
+      <section class="card card--soft card--search">
         <div class="location-row">
           <div class="location-copy">
             <div class="location-label">מיקום נוכחי</div>
@@ -53,7 +56,8 @@
           <button class="icon-ghost" id="btnGps" aria-label="GPS">📍</button>
         </div>
         <div class="city-search-row city-search-row--v2">
-          <input class="city-input" id="placeInput" type="text" placeholder="חפש עיר / כתובת..." inputmode="search"
+          <input class="city-input" id="placeInput" type="text"
+                 placeholder="חפש עיר / כתובת..." inputmode="search"
                  onkeydown="if(event.key==='Enter') document.getElementById('btnSearch').click()" />
           <button class="city-search-btn" id="btnSearch" aria-label="חיפוש">🔎</button>
           <button class="city-search-btn city-search-btn--star" id="btnFav" title="הוסף למועדפים">☆</button>
@@ -61,6 +65,7 @@
         <div class="favorites-strip favorites-strip--v2" id="favList"></div>
       </section>
 
+      <!-- Forecast -->
       <div id="mainContent" class="forecast-stack">
         <div class="loading-state loading-state--card">
           <span>🌅</span>
@@ -68,27 +73,22 @@
         </div>
       </div>
 
+      <!-- Hidden sun data -->
       <div style="display:none" aria-hidden="true">
-        <span id="sunrise"></span>
-        <span id="sunset"></span>
-        <span id="sun-astro-dawn"></span>
-        <span id="sun-blue-morning"></span>
-        <span id="sun-civil-dawn"></span>
-        <span id="sun-sunrise-full"></span>
-        <span id="sun-golden-end"></span>
-        <span id="sun-solar-noon"></span>
-        <span id="sun-golden-start"></span>
-        <span id="sun-sunset-full"></span>
-        <span id="sun-blue-evening"></span>
-        <span id="sun-civil-dusk"></span>
-        <span id="sun-day-length"></span>
-        <span id="sunset-score"></span>
+        <span id="sunrise"></span><span id="sunset"></span>
+        <span id="sun-astro-dawn"></span><span id="sun-blue-morning"></span>
+        <span id="sun-civil-dawn"></span><span id="sun-sunrise-full"></span>
+        <span id="sun-golden-end"></span><span id="sun-solar-noon"></span>
+        <span id="sun-golden-start"></span><span id="sun-sunset-full"></span>
+        <span id="sun-blue-evening"></span><span id="sun-civil-dusk"></span>
+        <span id="sun-day-length"></span><span id="sunset-score"></span>
       </div>
 
+      <!-- Install banner -->
       <div class="install-banner" id="installBanner" style="display:none">
         <div>
           <strong>📲 התקן כאפליקציה</strong>
-          <p>שתף ← הוסף למסך הבית</p>
+          <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted)">שתף ← הוסף למסך הבית</p>
         </div>
         <button class="install-dismiss" onclick="document.getElementById('installBanner').style.display='none'">×</button>
       </div>

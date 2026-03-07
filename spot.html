@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ddb37a" />
+  <meta name="theme-color" content="#1a0c04" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="./manifest.json" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-512.png" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,19 +16,19 @@
   <link rel="stylesheet" href="./css/app.css" />
   <title>Spot Finder • דמדומים</title>
 </head>
-<body class="theme-aurora theme-spot">
+<body class="theme-spot">
   <div class="mobile-shell mobile-shell--spot">
     <header class="hero hero--compact">
       <div class="hero__media"><img src="./icons/icon-512.png" alt="שקיעה" /></div>
       <div class="hero__overlay"></div>
       <div class="hero__top hero__top--spot">
         <a class="hero-chip hero-chip--ghost" href="./index.html">← חזור</a>
-        <div class="hero-chip hero-chip--ghost hero-chip--static">Spot Finder 🔭</div>
+        <div class="hero-chip hero-chip--static">🔭 Spot Finder</div>
       </div>
       <div class="hero__content hero__content--compact">
         <span class="eyebrow">Find the place, not just the hour</span>
         <h1>נקודות תצפית</h1>
-        <p>חיפוש תצפיות, פסגות וחופים מתאימים לזריחה או לשקיעה הקרובה.</p>
+        <p>חיפוש תצפיות, פסגות וחופים מתאימים לשקיעה או לזריחה הקרובה.</p>
       </div>
     </header>
 
@@ -54,8 +54,8 @@
         </div>
 
         <div class="city-search-row city-search-row--v2 city-search-row--spot">
-          <input class="city-input" id="placeInput" type="text" placeholder="חפש עיר / כתובת..."
-                 inputmode="search"
+          <input class="city-input" id="placeInput" type="text"
+                 placeholder="חפש עיר / כתובת..." inputmode="search"
                  onkeydown="if(event.key==='Enter') document.getElementById('btnSearch').click()" />
           <button class="city-search-btn" id="btnSearch">🔎</button>
         </div>
