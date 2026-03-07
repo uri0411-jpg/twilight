@@ -1,12 +1,12 @@
 {
-  "name": "דמדומים",
-  "short_name": "דמדומים",
+  "name": "Twilight",
+  "short_name": "Twilight",
   "start_url": "./",
   "scope": "./",
   "id": "./",
   "display": "standalone",
-  "background_color": "#1a0c04",
-  "theme_color": "#1a0c04",
+  "background_color": "#50301d",
+  "theme_color": "#50301d",
   "orientation": "portrait",
   "icons": [
     {

@@ -3,46 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1a0c04" />
+  <meta name="theme-color" content="#50301d" />
   <link rel="stylesheet" href="./css/app.css" />
-  <title>מדיניות פרטיות • דמדומים</title>
+  <title>Twilight — Privacy</title>
 </head>
-<body class="theme-policy">
-  <div class="mobile-shell">
-    <header class="hero hero--compact hero--policy">
-      <div class="hero__media"><img src="./icons/icon-512.png" alt="שקיעה" /></div>
-      <div class="hero__overlay"></div>
-      <div class="hero__top hero__top--spot">
-        <a class="hero-chip hero-chip--ghost" href="./index.html">← חזור</a>
-        <div class="hero-chip hero-chip--ghost hero-chip--static">דמדומים</div>
-      </div>
-      <div class="hero__content hero__content--compact">
-        <span class="eyebrow">Privacy</span>
-        <h1>מדיניות פרטיות</h1>
-        <p>שקיפות פשוטה וברורה לגבי מה נשמר במכשיר ומה לא.</p>
-      </div>
-    </header>
-
-    <main class="app-main policy-main">
-      <section class="card card--policy">
-        <div class="card__title">מה נאסף</div>
-        <ul class="policy-list">
-          <li>מיקום רק אם אתה בוחר GPS או חיפוש מקום.</li>
-          <li>אין חשבונות, אין מעקב פרסומי, אין שרת משתמשים.</li>
-          <li>מועדפים והעדפות נשמרים בדפדפן המקומי בלבד.</li>
-        </ul>
-      </section>
-      <section class="card card--policy">
-        <div class="card__title">למה זה נשמר</div>
-        <p class="muted">כדי לזכור מיקום אחרון, מועדפים והעדפות התראות ולהציג את האפליקציה גם במצב אופליין.</p>
-      </section>
-    </main>
-
-    <nav class="bottom-nav">
-      <a class="bottom-nav__item" href="./index.html"><span>🏠</span><small>בית</small></a>
-      <a class="bottom-nav__item" href="./spot.html"><span>🔭</span><small>Spot Finder</small></a>
-      <a class="bottom-nav__item is-active" href="./privacy-policy.html"><span>🔒</span><small>פרטיות</small></a>
+<body class="theme-home">
+  <div class="privacy-wrap">
+    <div class="top-simple">
+      <div class="brand__title">Twilight</div>
+      <div class="brand__sub">Privacy & local-first storage</div>
+    </div>
+    <nav class="nav" style="margin:12px 0 18px;">
+      <a class="nav__item" href="./index.html">Forecast</a>
+      <a class="nav__item" href="./spot.html">Spot Finder</a>
+      <a class="nav__item nav__item--active" href="./privacy-policy.html">Privacy</a>
     </nav>
+    <section class="card">
+      <div class="card__title">מה נאסף</div>
+      <ul class="muted" style="margin:0; padding-inline-start:18px">
+        <li>מיקום: רק אם אתה מפעיל GPS או מחפש מקום.</li>
+        <li>המיקום נשמר מקומית בדפדפן לצורך נוחות.</li>
+        <li>אין חשבונות ואין מעקב פרסומי.</li>
+      </ul>
+    </section>
+    <section class="card" style="margin-top:14px;">
+      <div class="card__title">אחסון</div>
+      <div class="muted">מועדפים, הגדרות והתראות נשמרים ב-LocalStorage במכשיר.</div>
+    </section>
   </div>
 </body>
 </html>

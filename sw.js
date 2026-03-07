@@ -1,5 +1,5 @@
 // sw.js - stable PWA SW for GitHub Pages project sites
-const CACHE = "twilight-v9";
+const CACHE = "twilight-v10";
 const PRECACHE = [
   "./",
   "./index.html",

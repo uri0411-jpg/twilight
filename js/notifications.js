@@ -17,7 +17,7 @@
     if (delay < 0) return;
     setTimeout(() => {
       navigator.serviceWorker?.ready.then(reg => {
-        reg.showNotification("דמדומים — " + title, {
+        reg.showNotification("Twilight — " + title, {
           body, icon: "./icons/icon-192.png", badge: "./icons/icon-192.png",
           tag, renotify: true, vibrate: [200, 100, 200],
         });

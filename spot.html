@@ -3,119 +3,116 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1a0c04" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#50301d" />
   <link rel="manifest" href="./manifest.json" />
-  <link rel="apple-touch-icon" href="./icons/icon-512.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/app.css" />
-  <title>Spot Finder • דמדומים</title>
+  <title>Twilight — Spot Finder</title>
 </head>
 <body class="theme-spot">
-  <div class="mobile-shell mobile-shell--spot">
-    <header class="hero hero--compact">
-      <div class="hero__media"><img src="./icons/icon-512.png" alt="שקיעה" /></div>
-      <div class="hero__overlay"></div>
-      <div class="hero__top hero__top--spot">
-        <a class="hero-chip hero-chip--ghost" href="./index.html">← חזור</a>
-        <div class="hero-chip hero-chip--static">🔭 Spot Finder</div>
+<div class="spot-layout">
+  <header class="hero hero--compact">
+    <div class="hero__media"><img src="./assets/backgrounds/hero-bright-pastel.png" alt="Pastel sunset landscape" /></div>
+    <div class="hero__overlay"></div>
+    <div class="hero__top hero__top--spot">
+      <a class="hero-chip nav-cta" href="./index.html">← Forecast</a>
+      <div class="hero__logo-badge"><img src="./icons/icon-192.png" alt="Twilight logo"></div>
+    </div>
+    <div class="hero__content hero__content--compact">
+      <div class="eyebrow">SPOT FINDER</div>
+      <h1>Sunset spots</h1>
+      <p>נקודות תצפית לשקיעה מושלמת לפי מיקום, מרחק, ואיכות אופק.</p>
+      <div class="spot-hero-actions">
+        <button class="hero-chip" id="btnGps" title="GPS">Use GPS</button>
+        <button class="hero-chip" id="btnFind">Find spots</button>
       </div>
-      <div class="hero__content hero__content--compact">
-        <span class="eyebrow">Find the place, not just the hour</span>
-        <h1>נקודות תצפית</h1>
-        <p>חיפוש תצפיות, פסגות וחופים מתאימים לשקיעה או לזריחה הקרובה.</p>
+    </div>
+  </header>
+
+  <main class="spot-main">
+    <section class="card card--search search-card">
+      <div class="location-badge">
+        <div class="location-badge__icon">🧭</div>
+        <div class="location-copy">
+          <span class="location-label">Search center</span>
+          <strong id="locInfo">לא נבחר מיקום</strong>
+          <span id="locCoords">חפש עיר או הפעל GPS</span>
+        </div>
       </div>
-    </header>
+      <div class="city-search-row city-search-row--v2 city-search-row--spot">
+        <input class="city-input" id="placeInput" type="text" placeholder="חפש עיר / כתובת..." inputmode="search" onkeydown="if(event.key==='Enter') document.getElementById('btnSearch').click()" />
+        <button class="city-search-btn" id="btnSearch">🔎</button>
+      </div>
+    </section>
 
-    <main class="app-main app-main--spot">
-      <span id="locInfo" class="sr-only"></span>
-      <span id="locCoords" class="sr-only"></span>
-      <button id="btnGps" class="sr-only">GPS</button>
-
-      <section class="map-stage card card--map">
-        <div id="spotMap"></div>
+    <section class="map-shell" style="margin-top:16px;">
+      <div id="spotMap">
         <div class="map-placeholder" id="mapPlaceholder">
-          <span class="map-placeholder-icon">🔭</span>
-          <span>חפש נקודות תצפית — המפה תיטען כאן</span>
+          <span class="map-placeholder-icon">🌇</span>
+          <span>המפה תיטען כאן אחרי חיפוש</span>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="controls-card controls-card--v2">
-        <div class="controls-head">
-          <div>
-            <div class="controls-title">הגדרות חיפוש</div>
-            <div class="controls-sub">התאם רדיוס, כמות תוצאות וסוגי מקום</div>
-          </div>
-        </div>
-
-        <div class="city-search-row city-search-row--v2 city-search-row--spot">
-          <input class="city-input" id="placeInput" type="text"
-                 placeholder="חפש עיר / כתובת..." inputmode="search"
-                 onkeydown="if(event.key==='Enter') document.getElementById('btnSearch').click()" />
-          <button class="city-search-btn" id="btnSearch">🔎</button>
-        </div>
-
-        <div class="controls-grid controls-grid--v2">
+    <div class="spot-grid" style="margin-top:16px;">
+      <section class="controls-card">
+        <div class="controls-title">Search settings</div>
+        <div class="controls-grid">
           <div class="field">
-            <span class="field__label">רדיוס</span>
+            <span class="field__label">Radius</span>
             <input class="range" id="radiusKm" type="range" min="2" max="30" value="12" step="1" />
-            <span class="pill"><span id="radiusVal">12</span> ק"מ</span>
+            <span class="pill"><span id="radiusVal">12</span> km</span>
           </div>
           <div class="field">
-            <span class="field__label">תוצאות</span>
+            <span class="field__label">Results</span>
             <select class="select" id="topN">
-              <option value="5">5 נקודות</option>
-              <option value="8" selected>8 נקודות</option>
-              <option value="12">12 נקודות</option>
-              <option value="20">20 נקודות</option>
+              <option value="5">5 spots</option>
+              <option value="8" selected>8 spots</option>
+              <option value="12">12 spots</option>
+              <option value="20">20 spots</option>
             </select>
           </div>
         </div>
-
-        <div class="filter-block">
-          <div class="filter-title">סוג מקום</div>
-          <div class="type-filters">
-            <label class="type-chip checked"><input type="checkbox" class="type-filter" value="viewpoint" checked>🔭 תצפית</label>
-            <label class="type-chip checked"><input type="checkbox" class="type-filter" value="peak" checked>⛰️ פסגה</label>
-            <label class="type-chip checked"><input type="checkbox" class="type-filter" value="hill" checked>🏔️ גבעה</label>
-            <label class="type-chip checked"><input type="checkbox" class="type-filter" value="tower" checked>🗼 מגדל</label>
-            <label class="type-chip"><input type="checkbox" class="type-filter" value="beach">🏖️ חוף</label>
-            <label class="type-chip"><input type="checkbox" class="type-filter" value="park">🌳 פארק</label>
-          </div>
+        <div style="font-size:12px;color:var(--muted);margin:10px 0 6px">Spot type</div>
+        <div class="type-filters">
+          <label class="type-chip checked"><input type="checkbox" class="type-filter" value="viewpoint" checked>🔭 Viewpoint</label>
+          <label class="type-chip checked"><input type="checkbox" class="type-filter" value="peak" checked>⛰️ Peak</label>
+          <label class="type-chip checked"><input type="checkbox" class="type-filter" value="hill" checked>🏔️ Hill</label>
+          <label class="type-chip checked"><input type="checkbox" class="type-filter" value="tower" checked>🗼 Tower</label>
+          <label class="type-chip"><input type="checkbox" class="type-filter" value="beach">🏖️ Coast</label>
+          <label class="type-chip"><input type="checkbox" class="type-filter" value="park">🌳 Park</label>
         </div>
-
-        <button class="btn-primary btn-primary--wide" id="btnFind">מצא נקודות</button>
       </section>
 
-      <div id="savedSpots" class="controls-card controls-card--v2" style="display:none"></div>
-
+      <div id="savedSpots" class="controls-card" style="display:none"></div>
       <section id="resultsCard" class="results-card" style="display:none">
         <div id="resultSummary"></div>
         <div id="results"></div>
-        <div class="source-hint">נתוני מיקום: OpenStreetMap · מרחקי כביש: OSRM · גובה: Open-Meteo</div>
+        <div class="source-hint">OpenStreetMap • Open-Meteo elevation • OSRM routing</div>
       </section>
-    </main>
+    </div>
+  </main>
+</div>
 
-    <nav class="bottom-nav">
-      <a class="bottom-nav__item" href="./index.html"><span>🏠</span><small>בית</small></a>
-      <a class="bottom-nav__item is-active" href="./spot.html"><span>🔭</span><small>Spot Finder</small></a>
-      <a class="bottom-nav__item" href="./privacy-policy.html"><span>🔒</span><small>פרטיות</small></a>
-    </nav>
-  </div>
+<nav class="bottom-nav" aria-label="Primary">
+  <a class="bottom-nav__item" href="./index.html"><strong>☼</strong><span>Forecast</span></a>
+  <a class="bottom-nav__item is-active" href="./spot.html"><strong>◌</strong><span>Spots</span></a>
+  <a class="bottom-nav__item" href="./privacy-policy.html"><strong>⋯</strong><span>Privacy</span></a>
+</nav>
 
-  <script src="./js/app.js"></script>
-  <script src="./js/sun.js"></script>
-  <script src="./js/favorites.js"></script>
-  <script src="./js/spotfinder.js"></script>
-  <script>
-    document.querySelectorAll('.type-chip').forEach(chip => {
-      chip.addEventListener('click', () => chip.classList.toggle('checked'));
-    });
-  </script>
+<script src="./js/app.js"></script>
+<script src="./js/sun.js"></script>
+<script src="./js/favorites.js"></script>
+<script src="./js/spotfinder.js"></script>
+<script>
+  document.querySelectorAll('.type-chip').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('checked'));
+  });
+</script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// app.js - shared utilities + PWA install + simple geocode
+// app.js - shared utilities + PWA install + geocode
 (() => {
   const $ = (id) => document.getElementById(id);
 
@@ -43,29 +43,13 @@
   }
 
   async function registerSW() {
-    if (!("serviceWorker" in navigator)) return { ok: false, reason: "no-sw" };
+    if (!("serviceWorker" in navigator)) return;
     try {
       await navigator.serviceWorker.register("./sw.js", { scope: "./" });
       await navigator.serviceWorker.ready;
-      return { ok: true };
     } catch (e) {
       console.error("SW register failed", e);
-      return { ok: false, reason: String(e) };
     }
-  }
-
-  function wireGlobalErrorToDebug() {
-    const debugOut = $("debugOut");
-    const debugCard = $("debugCard");
-    if (!debugOut || !debugCard) return;
-
-    const push = (msg) => {
-      debugCard.style.display = "block";
-      debugOut.textContent = (debugOut.textContent ? debugOut.textContent + "\n\n" : "") + msg;
-    };
-
-    window.addEventListener("error", (e) => push("ERROR: " + (e.message || e.error || e)));
-    window.addEventListener("unhandledrejection", (e) => push("PROMISE: " + (e.reason?.message || e.reason || e)));
   }
 
   function fmtCoord(n) { return (Math.round(n * 10000) / 10000).toFixed(4); }
@@ -96,25 +80,18 @@
     if (!locInfo) return;
     if (!loc) { locInfo.textContent = "לא נבחר מיקום"; return; }
     locInfo.textContent = loc.name || "מיקום";
-    if (locCoords) locCoords.textContent = `${fmtCoord(loc.lat)}, ${fmtCoord(loc.lon)}${loc.acc ? " • ±" + Math.round(loc.acc) + "m" : ""}`;
-  }
-
-  function setSunTimesDemo(loc) {
-    const sunrise = $("sunrise");
-    const sunset = $("sunset");
-    if (!sunrise || !sunset) return;
-    if (!loc) { sunrise.textContent="--:--"; sunset.textContent="--:--"; return; }
-    const now = new Date();
-    const base = (loc.lat + loc.lon) % 1;
-    const sr = new Date(now); sr.setHours(6, Math.floor(10 + base*40), 0, 0);
-    const ss = new Date(now); ss.setHours(18, Math.floor(5 + base*40), 0, 0);
-    sunrise.textContent = sr.toTimeString().slice(0,5);
-    sunset.textContent = ss.toTimeString().slice(0,5);
+    if (locCoords) locCoords.textContent =
+      `${fmtCoord(loc.lat)}, ${fmtCoord(loc.lon)}${loc.acc ? " • ±" + Math.round(loc.acc) + "m" : ""}`;
   }
 
   const STORAGE_KEY = "twilight_loc_v2";
   function loadLoc() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; } }
   function saveLoc(loc) { localStorage.setItem(STORAGE_KEY, JSON.stringify(loc)); }
+
+  function dispatchLoc(loc) {
+    window.__twilightLoc = loc;
+    window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));
+  }
 
   async function initCommon() {
     wireInstallButton();
@@ -124,8 +101,7 @@
     setLocUI(loc);
 
     if (loc) {
-      window.__twilightLoc = loc;
-      window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));
+      dispatchLoc(loc);
     } else {
       autoGPS();
     }
@@ -140,13 +116,12 @@
         btnGps.textContent = "טוען...";
         try {
           const g = await getGPS();
-          loc = { lat: g.lat, lon: g.lon, acc: g.acc, name: "מיקום נוכחי" };
-          saveLoc(loc);
-          setLocUI(loc);
-          window.__twilightLoc = loc;
-          window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));
+          const newLoc = { lat: g.lat, lon: g.lon, acc: g.acc, name: "מיקום נוכחי" };
+          saveLoc(newLoc);
+          setLocUI(newLoc);
+          dispatchLoc(newLoc);
         } catch (e) { alert(e.message || String(e)); }
-        finally { btnGps.disabled = false; btnGps.textContent = "GPS"; }
+        finally { btnGps.disabled = false; btnGps.textContent = "📍"; }
       });
     }
 
@@ -161,11 +136,10 @@
         btnSearch.textContent = "מחפש...";
         try {
           const g = await geocode(q);
-          loc = { lat: g.lat, lon: g.lon, name: q };
-          saveLoc(loc);
-          setLocUI(loc);
-          window.__twilightLoc = loc;
-          window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));
+          const newLoc = { lat: g.lat, lon: g.lon, name: q };
+          saveLoc(newLoc);
+          setLocUI(newLoc);
+          dispatchLoc(newLoc);
         } catch (e) { alert(e.message || String(e)); }
         finally { btnSearch.disabled = false; btnSearch.textContent = origText; }
       });
@@ -182,8 +156,7 @@
       const loc = { lat: g.lat, lon: g.lon, acc: g.acc, name: "מיקום נוכחי" };
       saveLoc(loc);
       setLocUI(loc);
-      window.__twilightLoc = loc;
-      window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));
+      dispatchLoc(loc);
     } catch {
       if (el) el.innerHTML = '<div class="loading-state"><span>🌍</span><p>חפש עיר כדי להתחיל</p></div>';
     }
@@ -199,25 +172,25 @@
     } catch { /* שקט */ }
   }
 
-  // ── שיתוף האפליקציה ──────────────────────────────────────────────
+  // ── שיתוף האפליקציה
   window.shareApp = async function() {
-    const url = 'https://github.com/uri0411-jpg/twilight/releases/download/v1.0/default.apk';
+    const url = 'https://uri0411-jpg.github.io/twilight/';
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'דמדומים — תחזית שקיעות וזריחות',
-          text: 'אפליקציה לתחזית צבעוניות שקיעות וזריחות 🌅',
+          title: 'Twilight — sunset forecast',
+          text: 'Twilight — sunset forecast and beautiful viewing spots 🌅',
           url
         });
       } catch {}
     } else {
       await navigator.clipboard.writeText(url).catch(() => {});
-      const btn = document.getElementById('btnShareApp');
+      const btn = $('btnShareApp');
       if (btn) { btn.textContent = '✓ הועתק'; setTimeout(() => { btn.textContent = '📤 שתף'; }, 2000); }
     }
   };
+
   document.addEventListener("DOMContentLoaded", () => {
-    wireGlobalErrorToDebug();
     initCommon();
   });
 })();
