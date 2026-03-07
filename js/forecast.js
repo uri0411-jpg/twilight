@@ -4,7 +4,7 @@
 
   function fmtTime(date) {
     return (!date || isNaN(date.getTime())) ? '--:--'
-      : date.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+      : date.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' });
   }
 
   function weatherCodeText(code) {
@@ -23,8 +23,8 @@
     const lowPenalty = (cloudLow ?? 0) > 40 ? Math.min(1.5, (cloudLow - 40) * 0.03) : 0;
     const cloudScore = Math.max(0, Math.min(4, (midCloudIdeal / 35) * 4 + highBonus - lowPenalty));
     const aodBonus = (aod ?? 0) > 0.1 && (aod ?? 0) < 0.8 ? Math.min(0.8, ((aod ?? 0) - 0.1) * 1.1) : 0;
-    const pm25Penalty = (pm25 ?? 0) > 50  ? Math.min(1.5, ((pm25 ?? 0) - 50) * 0.02) : 0;
-    const visPenalty = (visKm ?? 20) < 5  ? Math.min(2, (5 - visKm) * 0.4) : 0;
+    const pm25Penalty = (pm25 ?? 0) > 50 ? Math.min(1.5, ((pm25 ?? 0) - 50) * 0.02) : 0;
+    const visPenalty = (visKm ?? 20) < 5 ? Math.min(2, (5 - visKm) * 0.4) : 0;
     const windBonus = (windMs ?? 5) >= 5 && (windMs ?? 5) <= 15 ? 0.5 : 0;
     const humidPenalty = (humid ?? 60) > 90 ? 1.0 : 0;
     const rainPenalty = (rain ?? 0) > 80 ? 4.0 : (rain ?? 0) > 40 ? 2.0 : (rain ?? 0) > 15 ? 1.0 : 0;
@@ -41,7 +41,7 @@
   }
 
   async function fetchForecast(lat, lon) {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,precipitation_probability,relative_humidity_2m,visibility,wind_speed_10m,weathercode&daily=weathercode,temperature_2m_max,temperature_2m_min,sunset,sunrise,precipitation_probability_max,cloud_cover_mean&timezone=auto&forecast_days=7`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,precipitation_probability,relative_humidity_2m,visibility,wind_speed_10m,weathercode&daily=weathercode,temperature_2m_max,temperature_2m_min,sunset,sunrise,precipitation_probability_max,cloud_cover_mean&timezone=auto&forecast_days=7`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('שגיאה בנתוני מזג האוויר');
     return res.json();
@@ -83,6 +83,7 @@
     const humid     = avgWindow(fData.hourly.relative_humidity_2m, ci, 60);
     const visKm     = avgWindow(fData.hourly.visibility, ci, 18000) / 1000;
     const windMs    = avgWindow(fData.hourly.wind_speed_10m, ci, 8);
+    const temp      = avgWindow(fData.hourly.temperature_2m, ci, 0);
     let dust = 0, aod = 0, pm25 = 0;
     if (aqData?.hourly?.time) {
       const aqci = findClosestHourIdx(eventDate, aqData.hourly.time);
@@ -92,61 +93,47 @@
     }
     return {
       score: calcScore(cloud, cloudHigh, cloudMid, cloudLow, rain, humid, visKm, windMs, dust, aod, pm25, wcode),
-      cloud, humid, visKm, windMs, dust,
+      cloud, humid, visKm, windMs, dust, temp,
       weather: weatherCodeText(wcode),
     };
-  }
-
-  function pickRecommendations(todayScore, cloud, visKm) {
-    const cards = [
-      {
-        key:'coast',
-        title:'חוף',
-        copy: visKm >= 12 ? 'צבעים פתוחים והחזר אור חזק על המים.' : 'יכול לעבוד אם הראות עדיין נפתחת בערב.',
-        img:'./assets/spots/spot-coast.png',
-        weight: visKm >= 12 ? 3 : 1
-      },
-      {
-        key:'mountain',
-        title:'הר',
-        copy: cloud <= 55 ? 'ראות רחבה וקווי רכס נקיים לשקיעה.' : 'מתאים כשהשמיים חלקית מעוננים.',
-        img:'./assets/spots/spot-mountain.png',
-        weight: cloud <= 55 ? 3 : 2
-      },
-      {
-        key:'desert',
-        title:'מדבר',
-        copy: todayScore >= 7 ? 'אופק דרמטי וצבעוניות עמוקה.' : 'עדיף רק אם האוויר נקי יחסית.',
-        img:'./assets/spots/spot-desert.png',
-        weight: todayScore >= 7 ? 3 : 1
-      },
-      {
-        key:'forest',
-        title:'יער',
-        copy: 'מתאים למי שמחפש אווירה רכה ומוגנת יותר מרוח.',
-        img:'./assets/spots/spot-forest.png',
-        weight: 1
-      }
-    ];
-    return cards.sort((a,b)=>b.weight-a.weight).slice(0,3);
   }
 
   function buildWeekly(data, aqData, loc) {
     const today = new Date();
     const weekly = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
       const sun = window.SunCalc?.calc(loc.lat, loc.lon, d);
       const wcode = data.daily.weathercode[i] ?? 0;
       const sunset = sun?.sunset ? scoreForEvent(sun.sunset, data, aqData, wcode) : { score: 5 };
       weekly.push({
         name: i === 0 ? 'היום' : i === 1 ? 'מחר' : DAYS_HE[d.getDay()],
+        date: `${d.getDate()}.${d.getMonth()+1}`,
         time: fmtTime(new Date(data.daily.sunset[i])),
         score: sunset.score,
-        label: qualityInfo(sunset.score).label
+        q: qualityInfo(sunset.score),
+        max: Math.round(data.daily.temperature_2m_max?.[i] ?? 0),
+        min: Math.round(data.daily.temperature_2m_min?.[i] ?? 0)
       });
     }
     return weekly;
+  }
+
+  function buildHourly(data, targetDate) {
+    const startIdx = findClosestHourIdx(targetDate, data.hourly.time);
+    const result = [];
+    for (let i = startIdx - 2; i <= startIdx + 3; i++) {
+      if (i < 0 || i >= data.hourly.time.length) continue;
+      const t = new Date(data.hourly.time[i]);
+      result.push({
+        time: fmtTime(t),
+        cloud: Math.round(data.hourly.cloud_cover?.[i] ?? 0),
+        visKm: ((data.hourly.visibility?.[i] ?? 0) / 1000).toFixed(1),
+        weather: weatherCodeText(data.hourly.weathercode?.[i] ?? 0),
+        temp: Math.round(data.hourly.temperature_2m?.[i] ?? 0)
+      });
+    }
+    return result;
   }
 
   function buildDetailCards(data, aqData, loc) {
@@ -154,50 +141,53 @@
     const cards = [];
     for (let i = 0; i < 3; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      const cardId = 'd'+i;
+      const cardId = 'd' + i;
       const wcode = data.daily.weathercode[i] ?? 0;
       const sun = window.SunCalc?.calc(loc.lat, loc.lon, d);
       const sunset = scoreForEvent(sun.sunset, data, aqData, wcode);
       const sunrise = scoreForEvent(sun.sunrise, data, aqData, wcode);
       const ssQ = qualityInfo(sunset.score);
       const srQ = qualityInfo(sunrise.score);
+
       cards.push(`
-      <article class="day-card${i===0 ? ' day-card--today':''}">
-        <div class="day-header">
-          <div>
-            <div class="day-name">${i===0?'היום':i===1?'מחר':DAYS_HE[d.getDay()]}</div>
-            <div class="day-date">${d.toLocaleDateString('he-IL')}</div>
+        <article class="forecast-day-card${i===0 ? ' forecast-day-card--today' : ''}">
+          <div class="forecast-day-card__head">
+            <div>
+              <div class="forecast-day-card__name">${i===0 ? 'היום' : i===1 ? 'מחר' : DAYS_HE[d.getDay()]}</div>
+              <div class="forecast-day-card__date">${d.toLocaleDateString('he-IL')}</div>
+            </div>
+            <div class="forecast-day-card__weather">${weatherCodeText(wcode)}</div>
           </div>
-          <div class="weather-summary">${weatherCodeText(wcode)}</div>
-        </div>
-        <div class="sun-events">
-          <div class="sun-event">
-            <div class="sun-event-title">זריחה</div>
-            <div class="sun-event-time">${fmtTime(sun.sunrise)}</div>
-            <div class="score-label"><span>צבעוניות</span><span class="score-value quality-${srQ.cls}">${sunrise.score}/10</span></div>
-            <div class="score-bar-track"><div class="score-bar-fill ${srQ.barCls}" style="width:${sunrise.score*10}%"></div></div>
-            <div class="score-description quality-${srQ.cls}">${srQ.label}</div>
-            <button class="notif-day-btn" id="notif-sunrise-${i}" data-type="sunrise" data-day="${i}" onclick="window.toggleDayNotif(this)">התראה לזריחה</button>
+
+          <div class="forecast-events">
+            <div class="forecast-event">
+              <div class="forecast-event__label">זריחה</div>
+              <div class="forecast-event__time">${fmtTime(sun.sunrise)}</div>
+              <div class="forecast-event__score quality-${srQ.cls}">${sunrise.score}/10</div>
+              <div class="forecast-event__text">${srQ.label}</div>
+              <button class="notif-day-btn" id="notif-sunrise-${i}" data-type="sunrise" data-day="${i}" onclick="window.toggleDayNotif(this)">התראה לזריחה</button>
+            </div>
+
+            <div class="forecast-event">
+              <div class="forecast-event__label">שקיעה</div>
+              <div class="forecast-event__time">${fmtTime(sun.sunset)}</div>
+              <div class="forecast-event__score quality-${ssQ.cls}">${sunset.score}/10</div>
+              <div class="forecast-event__text">${ssQ.label}</div>
+              <button class="notif-day-btn" id="notif-sunset-${i}" data-type="sunset" data-day="${i}" onclick="window.toggleDayNotif(this)">התראה לשקיעה</button>
+            </div>
           </div>
-          <div class="sun-event">
-            <div class="sun-event-title">שקיעה</div>
-            <div class="sun-event-time">${fmtTime(sun.sunset)}</div>
-            <div class="score-label"><span>צבעוניות</span><span class="score-value quality-${ssQ.cls}">${sunset.score}/10</span></div>
-            <div class="score-bar-track"><div class="score-bar-fill ${ssQ.barCls}" style="width:${sunset.score*10}%"></div></div>
-            <div class="score-description quality-${ssQ.cls}">${ssQ.label}</div>
-            <button class="notif-day-btn" id="notif-sunset-${i}" data-type="sunset" data-day="${i}" onclick="window.toggleDayNotif(this)">התראה לשקיעה</button>
+
+          <button class="accordion-btn" onclick="toggleAccordion('${cardId}')"><span>פרטי תנאים</span><span class="accordion-arrow">▼</span></button>
+          <div class="weather-detail" id="detail-${cardId}">
+            <div class="weather-grid">
+              <div class="weather-item"><div class="weather-item-icon">☁️</div><div class="weather-item-text">עננות ${Math.round(sunset.cloud)}%</div></div>
+              <div class="weather-item"><div class="weather-item-icon">👁</div><div class="weather-item-text">ראות ${sunset.visKm.toFixed(1)} ק"מ</div></div>
+              <div class="weather-item"><div class="weather-item-icon">💧</div><div class="weather-item-text">לחות ${Math.round(sunset.humid)}%</div></div>
+              <div class="weather-item"><div class="weather-item-icon">🌬</div><div class="weather-item-text">רוח ${sunset.windMs.toFixed(1)} מ'/ש</div></div>
+            </div>
           </div>
-        </div>
-        <button class="accordion-btn" onclick="toggleAccordion('${cardId}')"><span>פרטי תנאים</span><span class="accordion-arrow" id="arrow-${cardId}">▼</span></button>
-        <div class="weather-detail" id="detail-${cardId}">
-          <div class="weather-grid">
-            <div class="weather-item"><div class="weather-item-icon">☁️</div><div class="weather-item-text">עננות ${Math.round(sunset.cloud)}%</div></div>
-            <div class="weather-item"><div class="weather-item-icon">👁</div><div class="weather-item-text">ראות ${sunset.visKm.toFixed(1)} ק"מ</div></div>
-            <div class="weather-item"><div class="weather-item-icon">💧</div><div class="weather-item-text">לחות ${Math.round(sunset.humid)}%</div></div>
-            <div class="weather-item"><div class="weather-item-icon">🌬</div><div class="weather-item-text">רוח ${sunset.windMs.toFixed(1)} מ'/ש</div></div>
-          </div>
-        </div>
-      </article>`);
+        </article>
+      `);
     }
     return cards.join('');
   }
@@ -211,78 +201,98 @@
     const container = document.getElementById('mainContent');
     if (!container) return;
 
+    const now = new Date();
+    const currentIdx = findClosestHourIdx(now, data.hourly.time);
+    const todaySun = window.SunCalc?.calc(loc.lat, loc.lon, now) || null;
     const sunsetTime = new Date(data.daily.sunset[0]);
-    const todaySun = window.SunCalc?.calc(loc.lat, loc.lon, new Date()) || null;
-    const todayEval = todaySun ? scoreForEvent(todaySun.sunset, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5, cloud:40, visKm:12, weather:'בהיר' };
+    const sunriseTime = new Date(data.daily.sunrise[0]);
+    const todayEval = todaySun ? scoreForEvent(todaySun.sunset, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5, cloud:40, visKm:12, humid:60, windMs:5, temp:0, weather:'בהיר' };
+    const sunriseEval = todaySun ? scoreForEvent(todaySun.sunrise, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5 };
     const q = qualityInfo(todayEval.score);
     const weekly = buildWeekly(data, aqData, loc);
-    const recommendations = pickRecommendations(todayEval.score, todayEval.cloud, todayEval.visKm);
+    const hourly = buildHourly(data, sunsetTime);
+    const currentTemp = Math.round(data.hourly.temperature_2m?.[currentIdx] ?? todayEval.temp ?? 0);
+    const currentWeather = weatherCodeText(data.hourly.weathercode?.[currentIdx] ?? data.daily.weathercode?.[0] ?? 0);
 
     const html = `
-      <section class="forecast-shell">
-        <article class="score-card">
-          <div class="score-card__top">
-            <div class="score-card__label">תחזית שקיעה להיום</div>
-            <div class="score-card__score">${todayEval.score}<span style="font-size:.55em">/10</span></div>
-            <div class="score-card__desc quality-${q.cls}">${q.label}</div>
+      <section class="forecast-screen">
+        <section class="forecast-summary-card">
+          <div class="forecast-summary-card__top">
+            <div>
+              <div class="forecast-kicker">הערב הקרוב</div>
+              <h2 class="forecast-summary-card__title">איכות שקיעה ${q.label}</h2>
+            </div>
+            <div class="forecast-summary-card__score">${todayEval.score}<span>/10</span></div>
           </div>
-          <div style="padding:10px 8px 0">
-            <div class="score-card__time">${fmtTime(sunsetTime)}</div>
-            <div class="conditions">
-              <div class="condition">
-                <div class="condition__icon">☁️</div>
-                <div class="condition__text">עננות ${Math.round(todayEval.cloud)}%</div>
+
+          <div class="forecast-main-row">
+            <div class="forecast-main-time">
+              <div class="forecast-main-time__label">שקיעה היום</div>
+              <div class="forecast-main-time__value">${fmtTime(sunsetTime)}</div>
+              <div class="forecast-main-time__sub">זריחה ${fmtTime(sunriseTime)}</div>
+            </div>
+            <div class="forecast-current-boxes">
+              <div class="forecast-mini-box">
+                <span class="forecast-mini-box__label">מזג אוויר</span>
+                <strong>${currentWeather}</strong>
               </div>
-              <div class="condition">
-                <div class="condition__icon">👁</div>
-                <div class="condition__text">ראות ${todayEval.visKm.toFixed(1)} ק"מ</div>
-              </div>
-              <div class="condition">
-                <div class="condition__icon">🌫</div>
-                <div class="condition__text">${todayEval.weather}</div>
+              <div class="forecast-mini-box">
+                <span class="forecast-mini-box__label">טמפרטורה</span>
+                <strong>${currentTemp}°</strong>
               </div>
             </div>
           </div>
-        </article>
 
-        <section>
-          <div class="section-title">תחזית קצרה</div>
-          <div class="section-sub">היום בראש, ואחריו הימים הקרובים.</div>
-          <div class="weekly-strip" style="margin-top:12px">
-            ${weekly.map(day => `
-              <div class="mini-day ${day.name==='היום' ? 'mini-day--today':''}">
-                <div class="mini-day__name">${day.name}</div>
-                <div class="mini-day__score">${day.score}</div>
-                <div class="mini-day__time">${day.time}</div>
-                <div class="mini-day__hint">${day.label}</div>
-              </div>
-            `).join('')}
+          <div class="forecast-stats-grid">
+            <div class="forecast-stat"><span>עננות</span><strong>${Math.round(todayEval.cloud)}%</strong></div>
+            <div class="forecast-stat"><span>ראות</span><strong>${todayEval.visKm.toFixed(1)} ק"מ</strong></div>
+            <div class="forecast-stat"><span>לחות</span><strong>${Math.round(todayEval.humid)}%</strong></div>
+            <div class="forecast-stat"><span>רוח</span><strong>${todayEval.windMs.toFixed(1)} מ'/ש</strong></div>
+            <div class="forecast-stat"><span>ציון זריחה</span><strong>${sunriseEval.score}/10</strong></div>
+            <div class="forecast-stat"><span>שמיים</span><strong>${todayEval.weather}</strong></div>
           </div>
         </section>
 
-        <section>
-          <div class="section-title">היום כדאי ללכת</div>
-          <div class="section-sub">המלצה חכמה לסוג הלוקיישן שמתאים לערב הקרוב.</div>
-          <div class="reco-grid" style="margin-top:12px">
-            ${recommendations.map(item => `
-              <article class="reco-card">
-                <img src="${item.img}" alt="${item.title}">
-                <div class="reco-card__body">
-                  <div class="reco-card__title">${item.title}</div>
-                  <div class="reco-card__copy">${item.copy}</div>
-                </div>
+        <section class="forecast-panel">
+          <div class="section-title">תחזית שבועית של צבעוניות</div>
+          <div class="section-sub">גלול אופקית כדי לראות את איכות השקיעה בכל יום.</div>
+          <div class="weekly-scroll">
+            ${weekly.map(day => `
+              <article class="weekly-day-card weekly-day-card--${day.q.cls}">
+                <div class="weekly-day-card__name">${day.name}</div>
+                <div class="weekly-day-card__date">${day.date}</div>
+                <div class="weekly-day-card__score">${day.score}</div>
+                <div class="weekly-day-card__time">${day.time}</div>
+                <div class="weekly-day-card__temps">${day.max}° / ${day.min}°</div>
               </article>
             `).join('')}
           </div>
         </section>
 
-        <section class="week-chart-section">
-          <div class="week-chart-title">פירוט לשלושה ימים</div>
-          <div class="week-chart-sub">שקיעה, זריחה והתראות לפי היום.</div>
+        <section class="forecast-panel">
+          <div class="section-title">חלון שעות עד השקיעה</div>
+          <div class="section-sub">התנאים לשעות שסביב השקיעה היום.</div>
+          <div class="hourly-scroll">
+            ${hourly.map(item => `
+              <article class="hourly-chip">
+                <div class="hourly-chip__time">${item.time}</div>
+                <div class="hourly-chip__temp">${item.temp}°</div>
+                <div class="hourly-chip__meta">${item.weather}</div>
+                <div class="hourly-chip__meta">עננות ${item.cloud}%</div>
+                <div class="hourly-chip__meta">ראות ${item.visKm} ק"מ</div>
+              </article>
+            `).join('')}
+          </div>
         </section>
 
-        ${buildDetailCards(data, aqData, loc)}
-      </section>`;
+        <section class="forecast-panel">
+          <div class="section-title">פירוט ימים קרובים</div>
+          <div class="section-sub">מבנה תחזית מסודר עם שקיעה, זריחה ותנאי שמיים.</div>
+          <div class="forecast-days-stack">${buildDetailCards(data, aqData, loc)}</div>
+        </section>
+      </section>
+    `;
+
     container.innerHTML = html;
     restoreNotifButtons();
   }
@@ -299,10 +309,9 @@
     }
   }
 
-  const NOTIF_STEPS = [10,20,30,60];
-  window.toggleDayNotif = function(btn){
+  window.toggleDayNotif = function(btn) {
     const type = btn.dataset.type;
-    const dayIdx = parseInt(btn.dataset.day,10);
+    const dayIdx = parseInt(btn.dataset.day, 10);
     const activeKey = `notif_active_${type}_${dayIdx}`;
     const minKey = `notif_min_${type}_${dayIdx}`;
     if (btn.classList.contains('active')) {
@@ -331,7 +340,7 @@
 
   function restoreNotifButtons() {
     for (let i = 0; i < 3; i++) {
-      ['sunset','sunrise'].forEach(type => {
+      ['sunset', 'sunrise'].forEach(type => {
         const btn = document.getElementById(`notif-${type}-${i}`);
         if (btn && localStorage.getItem(`notif_active_${type}_${i}`)) {
           const min = parseInt(localStorage.getItem(`notif_min_${type}_${i}`)) || 30;

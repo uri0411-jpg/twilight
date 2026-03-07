@@ -360,6 +360,35 @@ out tags center;`;
     return tags?.['name:he'] || tags?.name || tags?.['name:en'] || 'נקודה ללא שם';
   }
 
+
+  function spotThumb(spot) {
+    const label = spot.typeInfo?.label || '';
+    const tags = spot.tags || {};
+    const name = spot.name || '';
+    if (tags?.natural === 'beach' || /חוף|ים/.test(label + ' ' + name)) {
+      return { src:'./assets/spots/spot-coast.png', alt:'חוף' };
+    }
+    if (tags?.natural === 'peak' || tags?.natural === 'hill' || /פסגה|גבעה|הר|תצפית|מגדל|פלטפורמה/.test(label + ' ' + name)) {
+      return { src:'./assets/spots/spot-mountain.png', alt:'הר' };
+    }
+    if (tags?.leisure === 'park' || /יער|פארק/.test(label + ' ' + name)) {
+      return { src:'./assets/spots/spot-forest.png', alt:'יער' };
+    }
+    if (/מדבר|מכתש|רמון/.test(name)) {
+      return { src:'./assets/spots/spot-desert.png', alt:'מדבר' };
+    }
+    return { src:'./assets/spots/spot-mountain.png', alt:'נקודת תצפית' };
+  }
+
+  function recommendationTags(spot, index) {
+    const tags = [];
+    if (index < 3) tags.push('מומלץ היום');
+    if ((spot.horizScore || 0) >= 0.75) tags.push('אופק פתוח');
+    if ((spot.score || 0) >= 0.78) tags.push('צבעוניות גבוהה');
+    if ((spot.score || 0) >= 0.62 && tags.length < 3) tags.push('מתאים לשקיעה');
+    return tags.slice(0, 3);
+  }
+
   // ─── Score ────────────────────────────────────────────────────────
   function scoreSpot(center, spot, elevRange, nextEvent) {
     const d = haversineKm(center.lat, center.lon, spot.lat, spot.lon);
@@ -389,52 +418,42 @@ out tags center;`;
 
     scored.forEach((spot, i) => {
       const score10 = +(spot.score * 10).toFixed(1);
-      const ti = spot.typeInfo || { label:'נקודה', icon:'📍' };
+      const ti = spot.typeInfo || { label:'נקודה' };
       const isSaved = savedSpots.some(s => s.lat === spot.lat && s.lon === spot.lon);
-      const horizPct = Math.round((spot.horizScore||0)*100);
-      const scoreColor = score10 >= 8
-        ? 'linear-gradient(135deg,rgba(255,122,92,.25),rgba(244,177,75,.15))'
-        : score10 >= 6
-        ? 'linear-gradient(135deg,rgba(244,177,75,.18),rgba(244,201,122,.1))'
-        : 'rgba(255,255,255,.04)';
+      const horizPct = Math.round((spot.horizScore || 0) * 100);
+      const thumb = spotThumb(spot);
+      const recos = recommendationTags(spot, i);
 
-      const el = document.createElement('div');
-      el.className = 'item spot-list-item';
-      el.id = 'list-item-'+i;
+      const el = document.createElement('article');
+      el.className = 'spot-result-card';
+      el.id = 'list-item-' + i;
       el.style.cursor = 'pointer';
       el.innerHTML = `
-        <div class="item__left" style="flex:1;min-width:0">
-          <div class="item__title" style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:18px">${ti.icon}</span>
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${i+1} ${spot.name}</span>
-          </div>
-          <div class="item__meta" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-            <span class="badge">${ti.label}</span>
-            <span class="badge">⬆ ${Math.round(spot.elev)}m</span>
-            <span class="badge">🚗 ${spot.roadMeters ? fmtRoadKm(spot.roadMeters) : spot.d.toFixed(1)+' ק"מ'}</span>
-            <span class="badge">⏱ ${spot.roadSeconds ? fmtDrive(spot.roadSeconds) : '~'+Math.round(spot.d/50*60)+' דק\''}</span>
-            <span class="badge" style="color:rgba(240,180,60,.9)">${spot.nextEvent?.icon||'🌇'} אופק ${horizPct}%</span>
-            ${!spot.fromGrid?'<span class="badge" style="color:rgba(100,220,100,.8)">OSM ✓</span>':''}
-          </div>
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <a href="${mapsUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()"
-               style="font-size:11px;padding:5px 10px;background:rgba(240,180,60,.15);border:1px solid rgba(240,180,60,.25);
-               border-radius:8px;color:#ffd46a;text-decoration:none;font-weight:600">🗺 מפות</a>
-            <a href="${wazeUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()"
-               style="font-size:11px;padding:5px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-               border-radius:8px;color:var(--text);text-decoration:none;font-weight:600">🚗 Waze</a>
-            <button onclick="event.stopPropagation();window.toggleSpotFav(${i})" id="fav-btn-${i}"
-               style="font-size:14px;padding:5px 8px;background:none;border:1px solid rgba(255,255,255,.1);
-               border-radius:8px;cursor:pointer;color:${isSaved?'#ffd46a':'rgba(244,232,212,.4)'}">
-               ${isSaved?'★':'☆'}
-            </button>
-            <button onclick="event.stopPropagation();window.shareSpot(${i})"
-               style="font-size:14px;padding:5px 8px;background:none;border:1px solid rgba(255,255,255,.1);
-               border-radius:8px;cursor:pointer;color:rgba(244,232,212,.4)">📤</button>
-          </div>
+        <div class="spot-result-card__thumb-wrap">
+          <img class="spot-result-card__thumb" src="${thumb.src}" alt="${thumb.alt}">
         </div>
-        <div class="item__actions">
-          <div class="item__score" style="background:${scoreColor};font-family:'Cormorant Garamond',serif;font-size:22px">${score10}</div>
+        <div class="spot-result-card__main">
+          <div class="spot-result-card__head">
+            <div>
+              <div class="spot-result-card__title">#${i+1} ${spot.name}</div>
+              <div class="spot-result-card__subtitle">${ti.label} · ⬆ ${Math.round(spot.elev)}m</div>
+            </div>
+            <div class="spot-result-card__score">${score10}</div>
+          </div>
+
+          <div class="spot-result-card__meta">
+            <span class="spot-chip">${spot.roadMeters ? fmtRoadKm(spot.roadMeters) : spot.d.toFixed(1) + ' ק"מ'}</span>
+            <span class="spot-chip">${spot.roadSeconds ? fmtDrive(spot.roadSeconds) : '~' + Math.round(spot.d / 50 * 60) + " דק'"}</span>
+            <span class="spot-chip">אופק ${horizPct}%</span>
+            ${recos.map(tag => `<span class="spot-chip spot-chip--accent">${tag}</span>`).join('')}
+          </div>
+
+          <div class="spot-result-card__actions">
+            <a href="${mapsUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()" class="spot-action-btn spot-action-btn--primary">מפות</a>
+            <a href="${wazeUrl(spot.lat,spot.lon)}" target="_blank" onclick="event.stopPropagation()" class="spot-action-btn">Waze</a>
+            <button onclick="event.stopPropagation();window.toggleSpotFav(${i})" id="fav-btn-${i}" class="spot-icon-btn">${isSaved ? '★' : '☆'}</button>
+            <button onclick="event.stopPropagation();window.shareSpot(${i})" class="spot-icon-btn">⤴</button>
+          </div>
         </div>`;
 
       el.addEventListener('click', () => {
