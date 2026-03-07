@@ -1,9 +1,9 @@
-const CACHE='twilight-sunset-v1';
+const CACHE='twilight-sunset-v2';
 const PRECACHE=[
   './','./index.html','./spot.html','./privacy-policy.html','./offline.html',
   './manifest.webmanifest','./css/app.css',
   './js/app.js','./js/sun.js','./js/favorites.js','./js/forecast.js','./js/notifications.js','./js/spotfinder.js',
-  './icons/icon-192.png','./icons/icon-512.png',
+  './icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-192.png','./icons/icon-maskable-512.png',
   './assets/backgrounds/hero-golden-hour.png','./assets/backgrounds/hero-bright-pastel.png',
   './assets/spots/spot-mountain.png','./assets/spots/spot-coast.png','./assets/spots/spot-forest.png','./assets/spots/spot-desert.png'
 ];
