@@ -1,5 +1,20 @@
 
 (() => {
+  // ── In-memory forecast cache (30 min TTL) ──────────────────────────
+  const _cache = new Map();
+  const CACHE_TTL = 30 * 60 * 1000;
+  function _cacheKey(lat, lon) { return `${Math.round(lat*100)/100},${Math.round(lon*100)/100}`; }
+  function _getCached(lat, lon) {
+    const k = _cacheKey(lat, lon);
+    const entry = _cache.get(k);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL) { _cache.delete(k); return null; }
+    return entry.data;
+  }
+  function _setCached(lat, lon, data) {
+    _cache.set(_cacheKey(lat, lon), { data, ts: Date.now() });
+  }
+
   const DAYS_HE = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
 
   function fmtTime(date) {
@@ -144,8 +159,9 @@
       const cardId = 'd' + i;
       const wcode = data.daily.weathercode[i] ?? 0;
       const sun = window.SunCalc?.calc(loc.lat, loc.lon, d);
-      const sunset = scoreForEvent(sun.sunset, data, aqData, wcode);
-      const sunrise = scoreForEvent(sun.sunrise, data, aqData, wcode);
+      const fallbackDate = new Date();
+      const sunset  = scoreForEvent(sun?.sunset  ?? fallbackDate, data, aqData, wcode);
+      const sunrise = scoreForEvent(sun?.sunrise ?? fallbackDate, data, aqData, wcode);
       const ssQ = qualityInfo(sunset.score);
       const srQ = qualityInfo(sunrise.score);
 
@@ -204,11 +220,12 @@
     const now = new Date();
     const currentIdx = findClosestHourIdx(now, data.hourly.time);
     const todaySun = window.SunCalc?.calc(loc.lat, loc.lon, now) || null;
-    const sunsetTime = new Date(data.daily.sunset[0]);
-    const sunriseTime = new Date(data.daily.sunrise[0]);
+    const sunsetTime  = new Date(data?.daily?.sunset?.[0]  ?? Date.now() + 3600000);
+    const sunriseTime = new Date(data?.daily?.sunrise?.[0] ?? Date.now() - 3600000);
     const todayEval = todaySun ? scoreForEvent(todaySun.sunset, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5, cloud:40, visKm:12, humid:60, windMs:5, temp:0, weather:'בהיר' };
     const sunriseEval = todaySun ? scoreForEvent(todaySun.sunrise, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5 };
     const q = qualityInfo(todayEval.score);
+    window.__twilightTodayScore = todayEval.score;  // for notifications.js
     const weekly = buildWeekly(data, aqData, loc);
     const hourly = buildHourly(data, sunsetTime);
     const currentTemp = Math.round(data.hourly.temperature_2m?.[currentIdx] ?? todayEval.temp ?? 0);
@@ -222,7 +239,7 @@
               <div class="forecast-kicker">הערב הקרוב</div>
               <h2 class="forecast-summary-card__title">איכות שקיעה ${q.label}</h2>
             </div>
-            <div class="forecast-summary-card__score">${todayEval.score}<span>/10</span></div>
+            <div class="forecast-summary-card__score" id="sunset-score">${todayEval.score}<span>/10</span></div>
           </div>
 
           <div class="forecast-main-row">
@@ -299,13 +316,17 @@
 
   async function loadForecast(loc) {
     const container = document.getElementById('mainContent');
+    // Check memory cache first
+    const cached = _getCached(loc.lat, loc.lon);
+    if (cached) { render(cached.data, cached.aqData, loc); return; }
     if (container) container.innerHTML = '<div class="loading-state"><span>🌤️</span><p>טוען תחזית...</p></div>';
     try {
       const [data, aqData] = await Promise.all([fetchForecast(loc.lat, loc.lon), fetchAirQuality(loc.lat, loc.lon)]);
+      _setCached(loc.lat, loc.lon, { data, aqData });
       render(data, aqData, loc);
     } catch (e) {
       console.error(e);
-      if (container) container.innerHTML = `<div class="loading-state"><span>⚠️</span><p>שגיאה בטעינת התחזית</p></div>`;
+      if (container) container.innerHTML = `<div class="loading-state"><span>⚠️</span><p>שגיאה בטעינת התחזית. בדוק חיבור לאינטרנט.</p></div>`;
     }
   }
 

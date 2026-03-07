@@ -266,15 +266,7 @@
   // ─── expose ────────────────────────────────────────────────────────
   window.SunCalc = { calc, fmt, fmtDuration, fetchWeatherScore, updateSunUI };
 
-  // ─── הקשבה לאירוע מיקום מ-app.js ──────────────────────────────────
-  window.addEventListener("twilight:loc", (e) => {
-    updateSunUI(e.detail);
-  });
-
-  // ─── טעינה ראשונית אם יש מיקום שמור ──────────────────────────────
-  document.addEventListener("DOMContentLoaded", () => {
-    const loc = window.__twilightLoc;
-    if (loc) updateSunUI(loc);
-  });
+  // updateSunUI is available for standalone use if needed,
+  // but forecast.js handles all DOM rendering — no auto-listener here.
 
 })();

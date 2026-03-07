@@ -2,6 +2,7 @@
   "name": "דמדומים",
   "short_name": "דמדומים",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f2e6d7",
   "theme_color": "#f2e6d7",
@@ -10,12 +11,14 @@
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-maskable-192.png",
@@ -28,6 +31,34 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "תחזית שקיעה",
+      "short_name": "תחזית",
+      "description": "פתח תחזית שקיעה וזריחה",
+      "url": "./index.html",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "חיפוש ספוטים",
+      "short_name": "Spots",
+      "description": "מצא נקודות תצפית קרובות",
+      "url": "./spot.html",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

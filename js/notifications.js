@@ -1,21 +1,27 @@
 // notifications.js - התראות זריחה ושקיעה (4 סוגים)
 (() => {
   const STORAGE_KEY = "twilight_notif_v2";
+  const _timers = {};   // tag → timeoutId — prevents duplicate notifications
 
   function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } }
   function save(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
 
   function getTodayScore() {
+    // Prefer in-memory score set by forecast.js (more reliable than DOM)
+    if (typeof window.__twilightTodayScore === 'number') return window.__twilightTodayScore;
     const el = document.getElementById("sunset-score");
     if (!el) return null;
-    const v = parseInt(el.textContent);
+    const v = parseFloat(el.textContent);
     return isNaN(v) ? null : v;
   }
 
   function fire(tag, fireAt, title, body) {
     const delay = fireAt - Date.now();
     if (delay < 0) return;
-    setTimeout(() => {
+    // Clear previous timeout for this tag to prevent duplicates
+    if (_timers[tag]) { clearTimeout(_timers[tag]); delete _timers[tag]; }
+    _timers[tag] = setTimeout(() => {
+      delete _timers[tag];
       navigator.serviceWorker?.ready.then(reg => {
         reg.showNotification("דמדומים — " + title, {
           body, icon: "./icons/icon-192.png", badge: "./icons/icon-192.png",

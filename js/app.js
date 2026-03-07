@@ -67,7 +67,10 @@
 
   async function geocode(q) {
     const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q);
-    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    const res = await fetch(url, { headers: {
+      "Accept": "application/json",
+      "User-Agent": "Damdumim PWA/1.0 (https://uri0411-jpg.github.io/twilight/)"
+    } });
     if (!res.ok) throw new Error("Geocode נכשל (" + res.status + ")");
     const data = await res.json();
     if (!data?.length) throw new Error("לא נמצאה תוצאה");
@@ -164,8 +167,17 @@
 
   async function silentGPSRefresh() {
     try {
+      // Throttle: skip if last GPS update was < 10 minutes ago
+      const lastGpsTs = parseInt(localStorage.getItem('twilight_gps_ts') || '0');
+      if (Date.now() - lastGpsTs < 10 * 60 * 1000) return;
+
+      // Don't overwrite if user manually searched a city
+      const currentLoc = loadLoc();
+      if (currentLoc && currentLoc.name && currentLoc.name !== 'מיקום נוכחי') return;
+
       const g = await getGPS();
       const loc = { lat: g.lat, lon: g.lon, acc: g.acc, name: "מיקום נוכחי" };
+      localStorage.setItem('twilight_gps_ts', String(Date.now()));
       saveLoc(loc);
       window.__twilightLoc = loc;
       window.dispatchEvent(new CustomEvent("twilight:loc", { detail: loc }));

@@ -27,6 +27,7 @@
         <div class="eyebrow">מאתר נקודות</div>
         <h1 class="hero__title">נקודות לצפייה</h1>
         <p class="hero__subtitle">מציאת נקודות צפייה לשקיעה לפי מיקום, מרחק, גובה וכיוון אופק.</p>
+        <div class="spot-brand__sub eyebrow" style="margin-bottom:14px">נקודות תצפית לשקיעה 🌇</div>
         <div class="card card--glass card--compact">
           <div class="location-mini">
             <div>
@@ -62,6 +63,26 @@
               <option value="16">16</option>
             </select>
           </label>
+          <div style="margin-top:4px">
+            <div class="field-row__label" style="margin-bottom:8px">סוג מקום</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                <input type="checkbox" class="type-filter" value="viewpoint" checked style="accent-color:var(--gold-strong)"> נקודת תצפית 🔭
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                <input type="checkbox" class="type-filter" value="peak" checked style="accent-color:var(--gold-strong)"> פסגה ⛰️
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                <input type="checkbox" class="type-filter" value="hill" checked style="accent-color:var(--gold-strong)"> גבעה 🏔️
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                <input type="checkbox" class="type-filter" value="beach" style="accent-color:var(--gold-strong)"> חוף 🏖️
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                <input type="checkbox" class="type-filter" value="park" style="accent-color:var(--gold-strong)"> פארק 🌳
+              </label>
+            </div>
+          </div>
           <button class="pill-btn pill-btn--primary" id="btnFind" type="button">מצא נקודות</button>
         </div>
       </div>
