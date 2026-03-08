@@ -32,6 +32,17 @@
     return 'סוער';
   }
 
+  function weatherCodeEmoji(code) {
+    if (code === 0) return '☀️';
+    if (code <= 1) return '🌤️';
+    if (code <= 2) return '⛅';
+    if (code <= 3) return '☁️';
+    if (code <= 49) return '🌫️';
+    if (code <= 67) return '🌧️';
+    if (code <= 82) return '🌦️';
+    return '⛈️';
+  }
+
   function calcScore(cloud, cloudHigh, cloudMid, cloudLow, rain, humid, visKm, windMs, dust, aod, pm25, wcode) {
     const midCloudIdeal = 35 - Math.min(35, Math.abs((cloudMid ?? 25) - 35));
     const highBonus = (cloudHigh ?? 0) > 20 ? Math.min(1.5, (cloudHigh - 20) * 0.03) : 0;
@@ -127,6 +138,7 @@
         time: fmtTime(new Date(data.daily.sunset[i])),
         score: sunset.score,
         q: qualityInfo(sunset.score),
+        emoji: weatherCodeEmoji(wcode),
         max: Math.round(data.daily.temperature_2m_max?.[i] ?? 0),
         min: Math.round(data.daily.temperature_2m_min?.[i] ?? 0)
       });
@@ -145,6 +157,7 @@
         cloud: Math.round(data.hourly.cloud_cover?.[i] ?? 0),
         visKm: ((data.hourly.visibility?.[i] ?? 0) / 1000).toFixed(1),
         weather: weatherCodeText(data.hourly.weathercode?.[i] ?? 0),
+        emoji: weatherCodeEmoji(data.hourly.weathercode?.[i] ?? 0),
         temp: Math.round(data.hourly.temperature_2m?.[i] ?? 0)
       });
     }
@@ -224,11 +237,37 @@
     const todayEval = todaySun ? scoreForEvent(todaySun.sunset, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5, cloud:40, visKm:12, humid:60, windMs:5, temp:0, weather:'בהיר' };
     const sunriseEval = todaySun ? scoreForEvent(todaySun.sunrise, data, aqData, data.daily.weathercode[0] ?? 0) : { score:5 };
     const q = qualityInfo(todayEval.score);
-    window.__twilightTodayScore = todayEval.score;  // for notifications.js
+    window.__twilightTodayScore = todayEval.score;
     const weekly = buildWeekly(data, aqData, loc);
     const hourly = buildHourly(data, sunsetTime);
     const currentTemp = Math.round(data.hourly.temperature_2m?.[currentIdx] ?? todayEval.temp ?? 0);
-    const currentWeather = weatherCodeText(data.hourly.weathercode?.[currentIdx] ?? data.daily.weathercode?.[0] ?? 0);
+    const currentWcode = data.hourly.weathercode?.[currentIdx] ?? data.daily.weathercode?.[0] ?? 0;
+    const currentWeather = weatherCodeText(currentWcode);
+    const currentEmoji = weatherCodeEmoji(currentWcode);
+
+    // Golden hour / blue hour timeline
+    const goldenStart = todaySun?.goldenHourEveningStart;
+    const blueEnd     = todaySun?.blueHourEveningEnd;
+    const goldenTimelineHtml = (goldenStart && blueEnd) ? `
+      <div class="golden-timeline">
+        <div class="golden-timeline__item golden-timeline__item--golden">
+          <span class="golden-timeline__icon">🌇</span>
+          <span class="golden-timeline__label">Golden Hour</span>
+          <span class="golden-timeline__time">${fmtTime(goldenStart)}</span>
+        </div>
+        <div class="golden-timeline__line"></div>
+        <div class="golden-timeline__item golden-timeline__item--sunset">
+          <span class="golden-timeline__icon">🌅</span>
+          <span class="golden-timeline__label">שקיעה</span>
+          <span class="golden-timeline__time">${fmtTime(sunsetTime)}</span>
+        </div>
+        <div class="golden-timeline__line"></div>
+        <div class="golden-timeline__item golden-timeline__item--blue">
+          <span class="golden-timeline__icon">🌃</span>
+          <span class="golden-timeline__label">Blue Hour</span>
+          <span class="golden-timeline__time">${fmtTime(blueEnd)}</span>
+        </div>
+      </div>` : '';
 
     const html = `
       <section class="forecast-screen">
@@ -237,65 +276,65 @@
             <div>
               <div class="forecast-kicker">הערב הקרוב</div>
               <h2 class="forecast-summary-card__title">איכות שקיעה ${q.label}</h2>
+              <div class="forecast-sunrise-row">
+                <span class="forecast-sunrise-label">זריחה</span>
+                <span class="forecast-sunrise-time">${fmtTime(sunriseTime)}</span>
+                <span class="forecast-sunrise-score quality-${qualityInfo(sunriseEval.score).cls}">${sunriseEval.score}/10</span>
+              </div>
             </div>
-            <div class="forecast-summary-card__score" id="sunset-score">${todayEval.score}<span>/10</span></div>
+            <div class="forecast-summary-card__score quality-score--${q.cls}" id="sunset-score">${todayEval.score}<span>/10</span></div>
           </div>
 
           <div class="forecast-main-row">
             <div class="forecast-main-time">
               <div class="forecast-main-time__label">שקיעה היום</div>
               <div class="forecast-main-time__value">${fmtTime(sunsetTime)}</div>
-              <div class="forecast-main-time__sub">זריחה ${fmtTime(sunriseTime)}</div>
             </div>
             <div class="forecast-current-boxes">
               <div class="forecast-mini-box">
-                <span class="forecast-mini-box__label">מזג אוויר</span>
-                <strong>${currentWeather}</strong>
-              </div>
-              <div class="forecast-mini-box">
-                <span class="forecast-mini-box__label">טמפרטורה</span>
+                <span class="forecast-mini-box__emoji">${currentEmoji}</span>
+                <span class="forecast-mini-box__label">${currentWeather}</span>
                 <strong>${currentTemp}°</strong>
               </div>
             </div>
           </div>
+
+          ${goldenTimelineHtml}
 
           <div class="forecast-stats-grid">
             <div class="forecast-stat"><span>עננות</span><strong>${Math.round(todayEval.cloud)}%</strong></div>
             <div class="forecast-stat"><span>ראות</span><strong>${todayEval.visKm.toFixed(1)} ק"מ</strong></div>
             <div class="forecast-stat"><span>לחות</span><strong>${Math.round(todayEval.humid)}%</strong></div>
             <div class="forecast-stat"><span>רוח</span><strong>${todayEval.windMs.toFixed(1)} מ'/ש</strong></div>
-            <div class="forecast-stat"><span>ציון זריחה</span><strong>${sunriseEval.score}/10</strong></div>
             <div class="forecast-stat"><span>שמיים</span><strong>${todayEval.weather}</strong></div>
+            <div class="forecast-stat"><span>אורך יום</span><strong>${todaySun?.dayLengthMin ? Math.floor(todaySun.dayLengthMin/60)+'h'+Math.round(todaySun.dayLengthMin%60)+'m' : '--'}</strong></div>
           </div>
         </section>
 
         <section class="forecast-panel">
-          <div class="section-title">תחזית שבועית של צבעוניות</div>
-          <div class="section-sub">גלול אופקית כדי לראות את איכות השקיעה בכל יום.</div>
-          <div class="weekly-scroll">
-            ${weekly.map(day => `
-              <article class="weekly-day-card weekly-day-card--${day.q.cls}">
+          <div class="section-title">תחזית 7 ימים</div>
+          <div class="weekly-grid">
+            ${weekly.map((day, i) => `
+              <article class="weekly-day-card weekly-day-card--${day.q.cls}${i===0 ? ' weekly-day-card--today' : ''}">
                 <div class="weekly-day-card__name">${day.name}</div>
-                <div class="weekly-day-card__date">${day.date}</div>
-                <div class="weekly-day-card__score">${day.score}</div>
+                <div class="weekly-day-card__emoji">${day.emoji}</div>
+                <div class="weekly-day-card__score quality-score--${day.q.cls}">${day.score}</div>
                 <div class="weekly-day-card__time">${day.time}</div>
-                <div class="weekly-day-card__temps">${day.max}° / ${day.min}°</div>
               </article>
             `).join('')}
           </div>
         </section>
 
         <section class="forecast-panel">
-          <div class="section-title">חלון שעות עד השקיעה</div>
+          <div class="section-title">חלון שעות לשקיעה</div>
           <div class="section-sub">התנאים לשעות שסביב השקיעה היום.</div>
           <div class="hourly-scroll">
             ${hourly.map(item => `
               <article class="hourly-chip">
                 <div class="hourly-chip__time">${item.time}</div>
+                <div class="hourly-chip__emoji">${item.emoji}</div>
                 <div class="hourly-chip__temp">${item.temp}°</div>
-                <div class="hourly-chip__meta">${item.weather}</div>
-                <div class="hourly-chip__meta">עננות ${item.cloud}%</div>
-                <div class="hourly-chip__meta">ראות ${item.visKm} ק"מ</div>
+                <div class="hourly-chip__meta">☁️ ${item.cloud}%</div>
               </article>
             `).join('')}
           </div>
@@ -303,7 +342,6 @@
 
         <section class="forecast-panel">
           <div class="section-title">פירוט ימים קרובים</div>
-          <div class="section-sub">מבנה תחזית מסודר עם שקיעה, זריחה ותנאי שמיים.</div>
           <div class="forecast-days-stack">${buildDetailCards(data, aqData, loc)}</div>
         </section>
       </section>
@@ -311,6 +349,14 @@
 
     container.innerHTML = html;
     restoreNotifButtons();
+
+    // Dynamic hero background based on score
+    const heroBg = document.querySelector('.hero__bg');
+    if (heroBg) {
+      heroBg.style.backgroundImage = todayEval.score >= 7
+        ? "url('./assets/backgrounds/hero-golden-hour.png')"
+        : "url('./assets/backgrounds/hero-bright-pastel.png')";
+    }
   }
 
   async function loadForecast(loc) {
