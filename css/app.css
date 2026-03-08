@@ -85,7 +85,7 @@ img{max-width:100%;display:block}
 .score-card{padding:16px;border-radius:30px;background:linear-gradient(180deg, rgba(255,255,255,.68), rgba(255,249,241,.88));border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow)}
 .score-card__top{padding:20px 16px 18px;border-radius:24px;background:
  linear-gradient(180deg, rgba(255,214,158,.52), rgba(255,245,232,.28)),
- url('./assets/backgrounds/hero-bright-pastel.png') center/cover no-repeat}
+ url('../assets/backgrounds/hero-bright-pastel.png') center/cover no-repeat}
 .score-card__label{font-size:14px;color:var(--muted)}
 .score-card__score{font:700 72px 'Cormorant Garamond',serif;line-height:.95;color:var(--gold-strong)}
 .score-card__desc{font-size:18px;font-weight:700}
@@ -129,9 +129,9 @@ img{max-width:100%;display:block}
 .score-label{display:flex;justify-content:space-between;font-size:13px;margin:8px 0 6px}
 .score-bar-track{height:10px;background:rgba(200,140,74,.14);border-radius:999px;overflow:hidden}
 .score-bar-fill{height:100%;border-radius:999px}
-.score-bar-fill.excellent,.bar-excellent{background:linear-gradient(90deg,#db7e3e,#f0b14a)}
-.score-bar-fill.good,.bar-good{background:linear-gradient(90deg,#d49552,#e7b66b)}
-.score-bar-fill.fair,.bar-fair{background:linear-gradient(90deg,#b8996d,#d4b186)}
+.score-bar-fill.excellent,.bar-excellent{background:linear-gradient(90deg,#e8651a,#f5c842)}
+.score-bar-fill.good,.bar-good{background:linear-gradient(90deg,#e07020,#f0b840)}
+.score-bar-fill.fair,.bar-fair{background:linear-gradient(90deg,#c87830,#e8a035)}
 .score-bar-fill.poor,.bar-poor{background:linear-gradient(90deg,#8d8f9b,#b2b4be)}
 .score-value,.quality-excellent{color:#bf6d2d}
 .quality-good{color:#c28448}
@@ -370,9 +370,9 @@ img{max-width:100%;display:block}
 .weekly-scroll::-webkit-scrollbar-thumb { background: var(--gold-soft); border-radius: 99px; }
 
 .weekly-day-card {
-  flex: 0 0 120px;
+  flex: 0 0 108px;
   scroll-snap-align: start;
-  padding: 14px 12px;
+  padding: 12px 10px;
   border-radius: 22px;
   background: rgba(255,252,247,.88);
   border: 1px solid var(--line);
@@ -383,10 +383,10 @@ img{max-width:100%;display:block}
 
 .weekly-day-card:active { transform: scale(.97); }
 
-.weekly-day-card--excellent { background: linear-gradient(180deg, rgba(255,220,160,.7), rgba(255,248,235,.9)); border-color: rgba(200,140,74,.25); }
-.weekly-day-card--good      { background: linear-gradient(180deg, rgba(255,235,190,.6), rgba(255,250,240,.9)); }
+.weekly-day-card--excellent { background: linear-gradient(160deg, rgba(235,140,40,.18), rgba(255,210,100,.12)); border-color: rgba(220,130,40,.35); }
+.weekly-day-card--good      { background: linear-gradient(160deg, rgba(240,175,80,.13), rgba(255,230,160,.10)); border-color: rgba(200,150,60,.22); }
 .weekly-day-card--fair      { background: rgba(255,252,247,.88); }
-.weekly-day-card--poor      { background: rgba(240,237,232,.7); }
+.weekly-day-card--poor      { background: rgba(235,232,228,.75); border-color: rgba(160,155,150,.18); }
 
 .weekly-day-card__name  { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
 .weekly-day-card__date  { font-size: 11px; color: var(--muted); opacity: .7; margin-bottom: 6px; }
@@ -486,6 +486,18 @@ img{max-width:100%;display:block}
   text-align: center;
 }
 
+/* שקיעה — כתום/זהוב */
+.forecast-event--sunset {
+  background: linear-gradient(160deg, rgba(240,140,40,.15), rgba(255,210,100,.10));
+  border-color: rgba(220,120,30,.25);
+}
+
+/* זריחה — כחול/סגול */
+.forecast-event--sunrise {
+  background: linear-gradient(160deg, rgba(100,140,220,.14), rgba(160,100,200,.10));
+  border-color: rgba(100,120,200,.22);
+}
+
 .forecast-event__label {
   font-size: 11px;
   letter-spacing: .14em;
@@ -515,6 +527,14 @@ img{max-width:100%;display:block}
 /* כפתור התראה פעיל */
 .notif-day-btn.active {
   background: linear-gradient(180deg,#e0b66d,#cf8b45);
+  color: white;
+}
+.notif-day-btn.active[data-type="sunset"] {
+  background: linear-gradient(180deg,#e8802a,#d4621a);
+  color: white;
+}
+.notif-day-btn.active[data-type="sunrise"] {
+  background: linear-gradient(180deg,#5b8fd4,#3d6ab8);
   color: white;
 }
 

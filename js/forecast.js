@@ -176,8 +176,7 @@
           </div>
 
           <div class="forecast-events">
-            <div class="forecast-event">
-              <div class="forecast-event__label">זריחה</div>
+            <div class="forecast-event forecast-event--sunrise">
               <div class="forecast-event__time">${fmtTime(sun.sunrise)}</div>
               <div class="forecast-event__score quality-${srQ.cls}">${sunrise.score}/10</div>
               <div class="forecast-event__text">${srQ.label}</div>

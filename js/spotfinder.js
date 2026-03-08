@@ -108,6 +108,17 @@
     if (ph) ph.style.display = 'none';
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
+    // sepia warm filter
+    const mapPane = document.getElementById('spotMap');
+    if (mapPane) {
+      const tilePane = mapPane.querySelector('.leaflet-tile-pane');
+      if (tilePane) tilePane.style.filter = 'sepia(0.55) saturate(0.85) brightness(0.97) hue-rotate(-8deg)';
+      // apply after tiles load
+      map.on('load tileload', () => {
+        const tp = mapPane.querySelector('.leaflet-tile-pane');
+        if (tp) tp.style.filter = 'sepia(0.55) saturate(0.85) brightness(0.97) hue-rotate(-8deg)';
+      });
+    }
     L.control.attribution({ prefix:false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(map);
   }
 

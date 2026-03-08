@@ -8,8 +8,8 @@
     if (!splash) return;
     setTimeout(() => {
       splash.classList.add("hidden");
-      setTimeout(() => splash.remove(), 800);
-    }, 1800);
+      setTimeout(() => splash.remove(), 400);
+    }, 800);
   });
 
   // ---------- PWA install handling
