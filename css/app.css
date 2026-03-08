@@ -85,7 +85,7 @@ img{max-width:100%;display:block}
 .score-card{padding:16px;border-radius:30px;background:linear-gradient(180deg, rgba(255,255,255,.68), rgba(255,249,241,.88));border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow)}
 .score-card__top{padding:20px 16px 18px;border-radius:24px;background:
  linear-gradient(180deg, rgba(255,214,158,.52), rgba(255,245,232,.28)),
- url('../assets/backgrounds/hero-bright-pastel.png') center/cover no-repeat}
+ url('./assets/backgrounds/hero-bright-pastel.png') center/cover no-repeat}
 .score-card__label{font-size:14px;color:var(--muted)}
 .score-card__score{font:700 72px 'Cormorant Garamond',serif;line-height:.95;color:var(--gold-strong)}
 .score-card__desc{font-size:18px;font-weight:700}
