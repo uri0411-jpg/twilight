@@ -69,7 +69,7 @@
     const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q);
     const res = await fetch(url, { headers: {
       "Accept": "application/json",
-      "User-Agent": "Damdumim PWA/1.0 (https://uri0411-jpg.github.io/twilight/)"
+      "User-Agent": "Damdumim PWA/1.0 (https://uri0411-jpg.github.io/)"
     } });
     if (!res.ok) throw new Error("Geocode נכשל (" + res.status + ")");
     const data = await res.json();
@@ -186,7 +186,7 @@
 
   // ── שיתוף האפליקציה
   window.shareApp = async function() {
-    const url = 'https://uri0411-jpg.github.io/twilight/';
+    const url = 'https://uri0411-jpg.github.io/';
     if (navigator.share) {
       try {
         await navigator.share({
