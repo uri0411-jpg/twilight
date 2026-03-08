@@ -1,4 +1,4 @@
-const CACHE='twilight-sunset-v3';
+const CACHE='twilight-sunset-v4';
 const PRECACHE=[
   './','./index.html','./spot.html','./privacy-policy.html','./offline.html',
   './manifest.webmanifest','./css/app.css',

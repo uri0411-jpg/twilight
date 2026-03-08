@@ -1,6 +1,10 @@
 {
   "name": "דמדומים",
   "short_name": "דמדומים",
+  "description": "תחזית חכמה לצפייה בשקיעה וזריחה — ציון איכות, זמן שקיעה והמלצות לוקיישן.",
+  "lang": "he",
+  "dir": "rtl",
+  "categories": ["weather", "lifestyle"],
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

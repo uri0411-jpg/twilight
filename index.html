@@ -13,6 +13,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/app.css" />
   <title>דמדומים</title>
+  <meta name="description" content="תחזית חכמה לצפייה בשקיעה וזריחה — ציון איכות, זמן שקיעה והמלצות לוקיישן." />
+  <meta property="og:title" content="דמדומים — תחזית שקיעה" />
+  <meta property="og:description" content="תחזית חכמה לצפייה בשקיעה וזריחה — ציון איכות, זמן שקיעה והמלצות לוקיישן." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="./icons/icon-512.png" />
 </head>
 <body class="forecast-body">
   <div id="splash">
@@ -66,7 +71,7 @@
     <div class="card" style="margin-bottom:16px">
       <h3 style="font:700 22px 'Cormorant Garamond',serif;margin:0 0 10px">התראות</h3>
       <div id="notifStatus" class="notif-status"></div>
-      <button id="btnRequestNotif" id="notifPermBtn" class="pill-btn pill-btn--primary" style="width:100%;margin-top:10px;display:none">הפעל התראות</button>
+      <button id="notifPermBtn" class="pill-btn pill-btn--primary" style="width:100%;margin-top:10px;display:none">הפעל התראות</button>
 
       <div style="margin-top:18px;display:grid;gap:14px">
         <!-- שקיעה -->
@@ -100,7 +105,7 @@
           <input type="checkbox" id="notifSunsetScoreOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
           <span>התראה לשקיעה מיוחדת (לפי ציון)</span>
         </label>
-        <div id="sunsetScoreRow" style="display:none;padding-right:28px;display:grid;gap:8px">
+        <div id="sunsetScoreRow" style="display:none;padding-right:28px;gap:8px">
           <label class="field-row">
             <span class="field-row__label">ציון מינימלי</span>
             <input id="sunsetScore" class="range-input" type="range" min="5" max="10" step="0.5" value="7">
@@ -118,7 +123,7 @@
           <input type="checkbox" id="notifSunriseScoreOn" style="width:18px;height:18px;accent-color:var(--gold-strong)">
           <span>התראה לזריחה מיוחדת (לפי ציון)</span>
         </label>
-        <div id="sunriseScoreRow" style="display:none;padding-right:28px;display:grid;gap:8px">
+        <div id="sunriseScoreRow" style="display:none;padding-right:28px;gap:8px">
           <label class="field-row">
             <span class="field-row__label">ציון מינימלי</span>
             <input id="sunriseScore" class="range-input" type="range" min="5" max="10" step="0.5" value="7">
